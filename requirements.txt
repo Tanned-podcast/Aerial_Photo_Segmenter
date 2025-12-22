@@ -1,0 +1,6 @@
+#SAMを動かすための環境　LINUX専用なので必ずWSLで
+#Linux版ではCUDAバージョンを気にせずインストール可能
+numpy
+pillow
+torch
+torchvision
