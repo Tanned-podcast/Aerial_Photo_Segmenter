@@ -28,9 +28,6 @@ from PIL import Image
 
 import torch
 
-from dotenv import load_dotenv
-load_dotenv("../../.env")
-
 sys.path.append("../../sam3")
 
 
@@ -45,8 +42,7 @@ except ImportError as e:  # pragma: no cover - 実行環境依存
     _import_error = e
 
 
-DEFAULT_PROMPT = "dog"
-HF_TOKEN = os.getenv("HF_TOKEN")
+DEFAULT_PROMPT = "building"
 
 def check_cuda() -> torch.device:
     """CUDA が利用可能かをチェックし、利用できる GPU デバイスを返す。"""
@@ -229,7 +225,7 @@ def process_images(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # CVAT 用マスク出力ディレクトリ
-    cvat_dir = output_dir / "cvat_masks"
+    cvat_dir = Path(str(Path(output_dir).parent)+"/cvat_masks")
     cvat_dir.mkdir(parents=True, exist_ok=True)
 
     image_exts = {".jpg", ".jpeg", ".png"}
@@ -300,7 +296,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
 
     input_dir = r"../../Sandbox/SAM_Test/img"
-    output_dir = r"../../Sandbox/SAM_Test/mask"
+    output_dir = r"../../Sandbox/SAM_Test/mask_building"
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 

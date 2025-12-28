@@ -1,0 +1,4 @@
+#Aerial_Photo_Segmenter
+通行可否判定を行うための画像セグメンテーションモデル。
+Aerial_Photo_Segmenter直下にfacebookのSAM3をgit cloneしてください。
+venvはlinuxでセットアップ：windowsだとtritonがないです、あとSAM3はpython3.12以降対応ですが、cmdだとpyenvが3.12対応してないのでバージョン管理むずいです
