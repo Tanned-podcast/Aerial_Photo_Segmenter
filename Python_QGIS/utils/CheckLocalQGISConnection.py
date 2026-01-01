@@ -19,11 +19,20 @@ print("PyQGIS OK!")
 
 print("QGIS is working")
 
-import qgis.processing
+from qgis import processing
 print("qgis.processing is working")
 
 from plugins.processing.core.Processing import Processing
 print("plugins.processing.core.Processing is working")
+
+from qgis.analysis import QgsNativeAlgorithms
+# **processing用の、QGISnativeアルゴリズムプロバイダを追加する**
+# これをしないと、bufferとかの基本的なアルゴリズムが読み込めず「見つかりません」となり使えない
+QgsApplication.processingRegistry().addProvider(QgsNativeAlgorithms())
+
+from qgis.core import QgsApplication
+for alg in QgsApplication.processingRegistry().algorithms():
+    print(alg.id())
 
 qgs.exitQgis()
 print("QGIS exited successfully")
