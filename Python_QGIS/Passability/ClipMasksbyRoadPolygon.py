@@ -21,13 +21,13 @@ import os
 import sys
 import glob
 
-from qgis.core import QgsVectorLayer, QgsProject
+from qgis.core import QgsVectorLayer
 import processing
 
 
 roads_path = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RoadBuffer\RoadBuffer_ALLAREA_MultiWidth_min_DRM_wajima_ONLYurban_NOTsunami_SegAdjusted.gpkg"
 masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\MaskTIFFs"
-output_path = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\MaskVector\ClippedMasks.gpkg"
+output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\MaskVector"
 
 
 def polygonize_raster(raster_path, value_field="DN"):
@@ -72,7 +72,7 @@ def merge_layers(layers, target_crs, output_path):
     return res['OUTPUT']
 
 
-def main(roads_path, masks_dir, output_path, value_field='DN', layer_name='clipped_vector_masks'):
+def main(roads_path, masks_dir, output_dir, value_field='DN', layer_name='clipped_vector_masks'):
 
     # Load roads layer
     roads = QgsVectorLayer(roads_path, 'roads', 'ogr')
@@ -86,7 +86,9 @@ def main(roads_path, masks_dir, output_path, value_field='DN', layer_name='clipp
         print('ERROR: no raster files found in', masks_dir)
         sys.exit(1)
 
-    clipped_layers = []
+    os.makedirs(output_dir, exist_ok=True)
+
+    saved_count = 0
 
     for rpath in raster_files:
         print('Polygonizing:', rpath)
@@ -95,31 +97,55 @@ def main(roads_path, masks_dir, output_path, value_field='DN', layer_name='clipp
         # Clip by roads polygon
         clipped = clip_by_roads(poly, roads)
 
-
         # Skip empty layers
         if clipped.featureCount() == 0:
             print('  -> no features after clipping, skipping')
             continue
 
-        clipped_layers.append(clipped)
         print('  -> clipped features:', clipped.featureCount())
 
-    if not clipped_layers:
-        print('No clipped features found across all rasters. Exiting.')
-        sys.exit(0)
+        base = os.path.splitext(os.path.basename(rpath))[0]
 
-    # Merge all clipped layers
-    print('Merging {} clipped layers into {}'.format(len(clipped_layers), output_path))
-    merged = merge_layers(clipped_layers, roads.crs().authid(), output_path)
+        # Extract and save each feature individually (one file per feature)
+        for feat in clipped.getFeatures():
+            fid = feat.id()
+            out_fp = os.path.join(output_dir, f"{base}_clipped_f{fid}.gpkg")
 
-    print('Output written to:', merged)
-    # Optionally add to current QGIS project
-    try:
-        out_layer = QgsVectorLayer(merged, layer_name, 'ogr')
-        if out_layer.isValid():
-            QgsProject.instance().addMapLayer(out_layer)
-            print('Added output layer to the project as "{}"'.format(layer_name))
-    except Exception:
-        pass
+            # Remove existing file so we can overwrite cleanly
+            if os.path.exists(out_fp):
+                try:
+                    os.remove(out_fp)
+                except Exception:
+                    pass
 
-main(roads_path, masks_dir, output_path, layer_name='clipped_vector_masks')
+            print(f'  -> extracting feature id {fid}')
+            expr = f"$id = {fid}"
+            try:
+                res_ext = processing.run('native:extractbyexpression', {'INPUT': clipped, 'EXPRESSION': expr, 'OUTPUT': 'memory:'})
+                single = res_ext.get('OUTPUT')
+                if single is None:
+                    print(f'    -> extraction returned no layer for feature {fid}, skipping')
+                    continue
+            except Exception as e:
+                print(f'    -> failed to extract feature {fid}: {e}')
+                continue
+
+            print('    -> saving to:', out_fp)
+            try:
+                res = processing.run('native:savefeatures', {'INPUT': single, 'OUTPUT': out_fp})
+            except Exception as e:
+                print(f'    -> failed to save feature {fid}: {e}')
+                continue
+
+            if res and res.get('OUTPUT'):
+                print('    -> saved:', res['OUTPUT'])
+                saved_count += 1
+            else:
+                print('    -> failed to save feature', fid)
+
+    if saved_count == 0:
+        print('No clipped features were saved. Exiting.')
+    else:
+        print(f'Done. Saved {saved_count} clipped layers to directory: {output_dir}')
+
+main(roads_path, masks_dir, output_dir, layer_name='clipped_vector_masks')
