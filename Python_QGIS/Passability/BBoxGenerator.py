@@ -6,11 +6,10 @@
 #
 # Configuration parameters below.
 
-from email.mime import base
 from qgis.core import (
     QgsVectorLayer, QgsFeature, QgsGeometry, QgsPointXY, QgsFields, QgsField,
     QgsWkbTypes, QgsProject, QgsVectorFileWriter, QgsRectangle, QgsFeatureRequest,
-    QgsVectorLayer, QgsCoordinateTransformContext, QgsMemoryProviderUtils
+    QgsVectorLayer, QgsCoordinateTransformContext, QgsMemoryProviderUtils, QgsDistanceArea
 )
 import processing
 from PyQt5.QtCore import QVariant
@@ -34,11 +33,16 @@ if not road_layer.isValid():
     raise RuntimeError('Failed to open road layer: {}'.format(ROAD_LAYER_PATH))
 crs = road_layer.crs()
 
+# Distance calculator for accurate meter measurements using GRS80 ellipsoid
+dist_calc = QgsDistanceArea()
+dist_calc.setSourceCrs(crs, QgsProject.instance().transformContext())
+dist_calc.setEllipsoid('GRS80')
+
 # Prepare output memory layer for H polygons
 # h_layer is for all the edits, h_single is for exporting to a file
 fields = QgsFields()
-fields.append(QgsField('angle_deg', QVariant.Double))
-fields.append(QgsField('width', QVariant.Double))
+fields.append(QgsField('angle_deg_clockwise', QVariant.Double))
+fields.append(QgsField('width_m', QVariant.Double))
 geom_type = QgsWkbTypes.Polygon
 h_layer = QgsVectorLayer(f'Polygon?crs={crs.authid()}', 'H_mem', 'memory')
 pr = h_layer.dataProvider()
@@ -50,7 +54,7 @@ csv_exists = os.path.exists(OUTPUT_CSV)
 csv_file = open(OUTPUT_CSV, 'a', newline='', encoding='utf-8')
 csv_writer = csv.writer(csv_file)
 if not csv_exists:
-    csv_writer.writerow(['angle_deg', 'width'])
+    csv_writer.writerow(['angle_deg', 'width_m'])
 
 # Find mask vector files
 mask_files = sorted(glob.glob(os.path.join(masks_dir, '*.gpkg')))
@@ -114,29 +118,17 @@ for mask_file in mask_files:
         theta = 0.0
         print(f'Info: no intersection for file {mask_file}; using angle 0.')
     else:
-        # theta = principal_angle_from_points(pts)  # radians
         for dfeat in dfeats:
             dgeom = dfeat.geometry()
-            print(f"dgeom type: {dgeom.type()}")
-
             if dgeom.isEmpty():
                 print("dgeom is empty, skipping")
                 continue
 
-            print(f"dgeom length: {dgeom.length()}")
-
-            angle_rad = dgeom.interpolateAngle(dgeom.length()/2)  # ラジアン
+            angle_rad = dgeom.interpolateAngle(EPSILON)  # ラジアン
             feat_angles.append(angle_rad)
-
-        print(f"feat_angles: {feat_angles}, len_feat_angles: {len(feat_angles)}")
 
         theta = sum(feat_angles) / len(feat_angles) if feat_angles else 0.0
         theta = math.degrees(theta)  # degreeに変換
-
-    print(f"deg theta {theta}")
-
-
-
 
     # Define E such that rotating polygon CCW by E aligns road horizontally:
     # E = -theta (radians). We'll store angle in degrees (angle_deg).
@@ -148,7 +140,11 @@ for mask_file in mask_files:
 
     # 5: Bounding box of F -> G (axis-aligned)
     bbox = f_geom.boundingBox()
-    width = bbox.width()
+    # compute width in meters using ellipsoidal distance (GRS80)
+    p1 = QgsPointXY(bbox.xMinimum(), bbox.yMinimum())
+    p2 = QgsPointXY(bbox.xMaximum(), bbox.yMinimum())
+    line_geom = QgsGeometry.fromPolylineXY([p1, p2])
+    width_m = dist_calc.measureLength(line_geom)
 
     # create bbox polygon geometry (G)
     rect_geom = QgsGeometry.fromRect(QgsRectangle(bbox.xMinimum(), bbox.yMinimum(), bbox.xMaximum(), bbox.yMaximum()))
@@ -157,10 +153,12 @@ for mask_file in mask_files:
     h_geom = QgsGeometry(rect_geom)
     h_geom.rotate(-angle_deg, centroid)
 
+    angle_deg_clockwise = -angle_deg  # store clockwise angle
+
     # Add H feature to a temporary single-feature memory layer and save it (prevents accumulation)
     hfeat = QgsFeature()
     hfeat.setGeometry(h_geom)
-    hfeat.setAttributes([float(angle_deg), float(width)])
+    hfeat.setAttributes([float(angle_deg_clockwise), float(width_m)])
 
     # create single feature memory layer (only current H)
     h_single = QgsVectorLayer(f'Polygon?crs={crs.authid()}', 'H_single', 'memory')
@@ -170,8 +168,8 @@ for mask_file in mask_files:
     h_single_pr.addFeatures([hfeat])
     h_single.updateExtents()
 
-    # Append entry to CSV
-    csv_writer.writerow([float(angle_deg), float(width)])
+    # Append entry to CSV (width in meters)
+    csv_writer.writerow([float(angle_deg_clockwise), float(width_m)])
 
     base_name = os.path.splitext(os.path.basename(mask_file))[0]
     out_fp = os.path.join(output_dir, f"{base_name}_bbox.gpkg")
