@@ -20,6 +20,8 @@ Note: run inside QGIS Python environment (processing must be available).
 import os
 import sys
 import glob
+import datetime
+import traceback
 
 from qgis.core import QgsVectorLayer
 import processing
@@ -30,8 +32,8 @@ masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\MaskTIFFs"
 output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\MaskVector"
 
 
-def polygonize_raster(raster_path, value_field="DN"):
-    """Polygonize a raster to a temporary GeoPackage and return a QgsVectorLayer."""
+def polygonize_raster(raster_path, value_field="DN", errors=None):
+    """Polygonize a raster to a temporary GeoPackage and return a QgsVectorLayer (or path)."""
     import tempfile
     import uuid
     tmp_dir = tempfile.gettempdir()
@@ -44,22 +46,39 @@ def polygonize_raster(raster_path, value_field="DN"):
         'EXTRA': '',
         'OUTPUT': out_path
     }
-    res = processing.run('gdal:polygonize', params)
-    return res['OUTPUT']
+    try:
+        res = processing.run('gdal:polygonize', params)
+        return res.get('OUTPUT')
+    except Exception as e:
+        msg = f"Polygonize failed for {raster_path}: {e}"
+        print('  ->', msg)
+        if errors is not None:
+            errors.append(msg)
+            errors.append(traceback.format_exc())
+        return None
 
 
-def clip_by_roads(input_layer, roads_layer):
+def clip_by_roads(input_layer, roads_layer, context_label=None, errors=None):
     params = {
         'INPUT': input_layer,
         'OVERLAY': roads_layer,
         'OUTPUT': 'memory:'
     }
-    res = processing.run('native:clip', params)
-    out = res['OUTPUT']
-    if isinstance(out, QgsVectorLayer):
-        return out
-    layer = QgsVectorLayer(out, 'clipped', 'ogr')
-    return layer
+    try:
+        res = processing.run('native:clip', params)
+        out = res.get('OUTPUT')
+        if isinstance(out, QgsVectorLayer):
+            return out
+        layer = QgsVectorLayer(out, 'clipped', 'ogr')
+        return layer
+    except Exception as e:
+        label = context_label or 'unknown'
+        msg = f"Clipping failed for {label}: {e}"
+        print('  ->', msg)
+        if errors is not None:
+            errors.append(msg)
+            errors.append(traceback.format_exc())
+        return None
 
 
 def merge_layers(layers, target_crs, output_path):
@@ -89,13 +108,23 @@ def main(roads_path, masks_dir, output_dir, value_field='DN', layer_name='clippe
     os.makedirs(output_dir, exist_ok=True)
 
     saved_count = 0
+    errors = []  # collect error messages during processing
 
     for rpath in raster_files:
+        base = os.path.splitext(os.path.basename(rpath))[0]
         print('Polygonizing:', rpath)
-        poly = polygonize_raster(rpath, value_field=value_field)
+        poly = polygonize_raster(rpath, value_field=value_field, errors=errors)
+
+        # If polygonize failed, skip
+        if poly is None:
+            print(f'  -> polygonize failed for {rpath}, skipping')
+            continue
 
         # Clip by roads polygon
-        clipped = clip_by_roads(poly, roads)
+        clipped = clip_by_roads(poly, roads, context_label=base, errors=errors)
+        if clipped is None:
+            print(f'  -> clipping failed for {base}, skipping')
+            continue
 
         # Skip empty layers
         if clipped.featureCount() == 0:
@@ -103,8 +132,6 @@ def main(roads_path, masks_dir, output_dir, value_field='DN', layer_name='clippe
             continue
 
         print('  -> clipped features:', clipped.featureCount())
-
-        base = os.path.splitext(os.path.basename(rpath))[0]
 
         # Extract and save each feature individually (one file per feature)
         for feat in clipped.getFeatures():
@@ -124,28 +151,52 @@ def main(roads_path, masks_dir, output_dir, value_field='DN', layer_name='clippe
                 res_ext = processing.run('native:extractbyexpression', {'INPUT': clipped, 'EXPRESSION': expr, 'OUTPUT': 'memory:'})
                 single = res_ext.get('OUTPUT')
                 if single is None:
-                    print(f'    -> extraction returned no layer for feature {fid}, skipping')
+                    msg = f"Extraction returned no layer for {base} feature {fid}"
+                    print(f'    -> {msg}, skipping')
+                    errors.append(msg)
                     continue
             except Exception as e:
-                print(f'    -> failed to extract feature {fid}: {e}')
+                msg = f"Failed to extract feature {fid} from {base}: {e}"
+                print(f'    -> {msg}')
+                errors.append(msg)
+                errors.append(traceback.format_exc())
                 continue
 
             print('    -> saving to:', out_fp)
             try:
                 res = processing.run('native:savefeatures', {'INPUT': single, 'OUTPUT': out_fp})
             except Exception as e:
-                print(f'    -> failed to save feature {fid}: {e}')
+                msg = f"Failed to save feature {fid} from {base} to {out_fp}: {e}"
+                print(f'    -> {msg}')
+                errors.append(msg)
+                errors.append(traceback.format_exc())
                 continue
 
             if res and res.get('OUTPUT'):
                 print('    -> saved:', res['OUTPUT'])
                 saved_count += 1
             else:
-                print('    -> failed to save feature', fid)
+                msg = f"Save returned no output for {base} feature {fid}"
+                print('    ->', msg)
+                errors.append(msg)
 
     if saved_count == 0:
         print('No clipped features were saved. Exiting.')
     else:
         print(f'Done. Saved {saved_count} clipped layers to directory: {output_dir}')
+
+    # If any errors collected, write them to a log file in output_dir
+    if errors:
+        err_fp = os.path.join(output_dir, f"processing_errors_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+        try:
+            with open(err_fp, 'w', encoding='utf-8') as ef:
+                ef.write(f"Processing errors for run: {datetime.datetime.now().isoformat()}\n")
+                ef.write(f"Source masks dir: {masks_dir}\n")
+                ef.write("Errors:\n")
+                for e in errors:
+                    ef.write(e + '\n')
+            print('Wrote error log to:', err_fp)
+        except Exception as e:
+            print('Failed to write error log file:', e)
 
 main(roads_path, masks_dir, output_dir, layer_name='clipped_vector_masks')

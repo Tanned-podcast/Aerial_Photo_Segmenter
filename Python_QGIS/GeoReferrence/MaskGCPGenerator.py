@@ -31,9 +31,9 @@ from PIL import Image
 
 # --------------------- USER CONFIG ---------------------
 # Default directories (edit as needed)
-DEFAULT_VECTOR_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Sandbox\SAM_Test\SquarePolygons"
-DEFAULT_IMAGE_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Sandbox\SAM_Test\img"
-DEFAULT_OUTPUT_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Sandbox\SAM_Test\GCP"
+DEFAULT_VECTOR_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\SquarePolygons"
+DEFAULT_IMAGE_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\Pred_MaskPNG"
+DEFAULT_OUTPUT_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\GCP"
 
 IMAGE_EXTS = ('.tif', '.tiff', '.png', '.jpg', '.jpeg', '.jp2')
 # -------------------------------------------------------
@@ -162,7 +162,8 @@ def generate_gcps(vector_dir, image_dir, output_dir):
             tokens.append(f"-gcp {w} {h} {lon:.6f} {lat:.6f}")
         line = ' '.join(tokens)
 
-        out_path = os.path.join(output_dir, f"{base_name}.gcp")
+        img_base_name = os.path.splitext(image_path)[0].split("\\")[-1]
+        out_path = os.path.join(output_dir, f"{img_base_name}.gcp")
         with open(out_path, 'w', encoding='utf-8') as fp:
             fp.write(line + '\n')
 

@@ -38,10 +38,10 @@ road_layer_path = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RoadBuffe
 # Directory containing many damage polygon files (shapefiles, gpkg layers, geojson, etc.)
 damages_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\MaskBBox"
 # Output path for result GeoPackage and layer name
-output_gpkg = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\Result\remaining_width_under4_median.gpkg"  # update
+output_gpkg = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\Result_QGIS\remaining_width_under4_test.gpkg"  # update
 output_layer_name = "remaining_under4"
 # Output CSV (summary per A feature)
-output_csv = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\Result\remaining_width_summary.csv"  # update
+output_csv = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\Result_QGIS\remaining_width_summary.csv"  # update
 
 # Threshold
 THRESHOLD = 4.0

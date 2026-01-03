@@ -135,9 +135,9 @@ def process_one_image(in_path, gcp_path, out_path, gcp_srs='EPSG:4326', dst_srs=
 
 def main():
 
-    img_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Sandbox\SAM_Test\Mask_Transparent"
-    gcp_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Sandbox\SAM_Test\GCP"
-    out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Sandbox\SAM_Test\MaskGeoTIFF"
+    img_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\Pred_MaskPNG"
+    gcp_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\GCP"
+    out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\MaskTIFFs"
     dst_srs = "EPSG:4612"
     gcp_srs = "EPSG:4612"
     overwrite = True

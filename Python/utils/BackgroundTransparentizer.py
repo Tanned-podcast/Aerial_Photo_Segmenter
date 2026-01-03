@@ -15,10 +15,8 @@ Requirements:
 """
 from __future__ import annotations
 
-import argparse
 import sys
 from pathlib import Path
-from typing import Tuple
 
 try:
     from PIL import Image
@@ -61,26 +59,9 @@ def iter_png_files(input_dir: Path, recursive: bool = True):
 
 
 def main(argv: list[str] | None = None) -> int:
-    # parser = argparse.ArgumentParser(
-    #     description="Make pure black (RGB=0,0,0) pixels transparent in PNG images and save to output dir."
-    # )
-    # parser.add_argument("input_dir", type=Path, help="Directory containing PNG images")
-    # parser.add_argument("output_dir", type=Path, help="Directory to save processed PNGs")
-    # parser.add_argument(
-    #     "--no-recursive",
-    #     dest="recursive",
-    #     action="store_false",
-    #     help="Do not recurse into subdirectories",
-    # )
-    # parser.add_argument(
-    #     "--overwrite",
-    #     action="store_true",
-    #     help="Overwrite existing files in output directory",
-    # )
-    # args = parser.parse_args(argv)
 
-    input_dir = Path(r"C:\Users\kyohe\Aerial_Photo_Segmenter\Sandbox\SegCode_Test\TrainVal\mask\SegmentationClass")
-    output_dir = Path(r"C:\Users\kyohe\Aerial_Photo_Segmenter\Sandbox\SegCode_Test\TrainVal\mask")
+    input_dir = Path(r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\Result_Segmentation\20260103_1810\PredMasks")
+    output_dir = Path(r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\Pred_MaskPNG")
     overwrite = True
 
     if not input_dir.exists() or not input_dir.is_dir():
@@ -111,5 +92,4 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(main())
+main()

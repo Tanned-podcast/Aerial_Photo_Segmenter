@@ -6,7 +6,7 @@ from PIL import Image
 
 # 読み込み元ディレクトリを指定
 # 例: input_dir = r"../../Sandbox/SAM_Test/mask/cvat_masks"
-input_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\TrainVal\mask"  # 必要に応じてパスを書き換えてください
+input_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\Test\mask"  # 必要に応じてパスを書き換えてください
 out_root = Path(r"C:\Users\kyohe\Aerial_Photo_Segmenter\Sandbox\SegCode_Test\ColorMask2Binary")
 
 # 画像ファイルを取得（png/jpg/jpeg）
@@ -27,7 +27,7 @@ for img_path in img_paths:
     binary = (arr > 0).astype(np.uint8)
 
     # バイナリ画像を保存
-    out_path = out_root / f"{img_path.stem}_binary.png"
+    out_path = out_root / f"{img_path.stem}.png"
     Image.fromarray(binary * 255).save(out_path)
 
     print(f"Saved binary mask: {out_path}")
