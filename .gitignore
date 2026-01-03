@@ -3,3 +3,5 @@ venv
 Sandbox
 .env
 20251209Data
+.venv
+pyproject.toml
