@@ -79,8 +79,8 @@ def main(argv: list[str] | None = None) -> int:
     # )
     # args = parser.parse_args(argv)
 
-    input_dir = Path(r"../../Sandbox/SAM_Test/ManualMasks/SegmentationClass")
-    output_dir = Path(r"../../Sandbox/SAM_Test/Mask_Transparent")
+    input_dir = Path(r"C:\Users\kyohe\Aerial_Photo_Segmenter\Sandbox\SegCode_Test\TrainVal\mask\SegmentationClass")
+    output_dir = Path(r"C:\Users\kyohe\Aerial_Photo_Segmenter\Sandbox\SegCode_Test\TrainVal\mask")
     overwrite = True
 
     if not input_dir.exists() or not input_dir.is_dir():
