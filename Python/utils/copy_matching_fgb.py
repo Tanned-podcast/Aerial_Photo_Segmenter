@@ -83,9 +83,9 @@ def copy_matches(matches: Dict[str, List[Path]], out_dir: Path, dry_run: bool = 
 
 def main():
 
-    images_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20250105Data\TrainVal\img_1209testData"
-    fgb_dir = r"C:\Users\kyohe\Aerial_Photo_Classifier\20251209Data\SquarePolygons\house_collapse\wajima_all"
-    out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20250105Data\SquarePolygons\wajima_all_1209TestData"
+    images_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\TrainVal\img_added107"
+    fgb_dir = r"C:\Users\kyohe\Aerial_Photo_Classifier\20251209Data\SquarePolygons\house_collapse\suzu_all"
+    out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\SquarePolygons\suzu_all_add107"
     recursive = True
     dry_run = False
     overwrite = True
