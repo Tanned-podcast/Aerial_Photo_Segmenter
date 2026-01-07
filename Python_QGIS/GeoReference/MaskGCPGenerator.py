@@ -31,9 +31,9 @@ from PIL import Image
 
 # --------------------- USER CONFIG ---------------------
 # Default directories (edit as needed)
-DEFAULT_VECTOR_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\SquarePolygons"
-DEFAULT_IMAGE_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\Pred_MaskPNG"
-DEFAULT_OUTPUT_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\GCP"
+DEFAULT_VECTOR_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\SquarePolygons\combined_test"
+DEFAULT_IMAGE_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskPNG\Pred"
+DEFAULT_OUTPUT_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\GCP\Pred"
 
 IMAGE_EXTS = ('.tif', '.tiff', '.png', '.jpg', '.jpeg', '.jp2')
 # -------------------------------------------------------
@@ -48,7 +48,7 @@ def find_images(image_dir, base_name):
             name, ext = os.path.splitext(f)
             if ext.lower() in IMAGE_EXTS:
                 name_low = name.lower()
-                if base_name_lower == name_low or base_name_lower in name_low or name_low in base_name_lower:
+                if base_name_lower == name_low:
                     candidates.append(os.path.join(root, f))
     return candidates
 
@@ -71,6 +71,7 @@ def generate_gcps(vector_dir, image_dir, output_dir):
     ensure_dir(output_dir)
 
     vector_files = [f for f in os.listdir(vector_dir) if f.lower().endswith('.fgb')]
+    print(f"found vector files: {len(vector_files)}")
     if not vector_files:
         print("No .fgb files found in vector_dir")
         return
