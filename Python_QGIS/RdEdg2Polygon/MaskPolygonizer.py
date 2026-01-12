@@ -1,4 +1,5 @@
 """
+1番目に実行、まずは被害ラスターをベクターとして書き出す
 Clip and aggregate polygonized raster masks by a road polygon using PyQGIS.
 
 Usage (run inside QGIS Python console or a QGIS-enabled Python):
@@ -27,9 +28,9 @@ from qgis.core import QgsVectorLayer
 import processing
 
 
-roads_path = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\passabilitytest_polygon_wajima_kibanchizu_rdedg_clipped.gpkg"
-masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\MaskTIFFs"
-output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\MaskVector"
+roads_path = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RoadBuffer\RoadBuffer_ALLAREA_MultiWidth_min_DRM_wajima_ONLYurban_NOTsunami_SegAdjusted.gpkg"
+masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\MaskTIFFs"
+output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\MaskPolygon"
 
 
 def polygonize_raster(raster_path, value_field="DN", errors=None):
@@ -48,7 +49,11 @@ def polygonize_raster(raster_path, value_field="DN", errors=None):
     }
     try:
         res = processing.run('gdal:polygonize', params)
-        return res.get('OUTPUT')
+        out = res.get('OUTPUT')
+        if isinstance(out, QgsVectorLayer):
+            return out
+        layer = QgsVectorLayer(out, 'clipped', 'ogr')
+        return layer
     except Exception as e:
         msg = f"Polygonize failed for {raster_path}: {e}"
         print('  ->', msg)
@@ -56,48 +61,8 @@ def polygonize_raster(raster_path, value_field="DN", errors=None):
             errors.append(msg)
             errors.append(traceback.format_exc())
         return None
-
-
-def clip_by_roads(input_layer, roads_layer, context_label=None, errors=None):
-    params = {
-        'INPUT': input_layer,
-        'OVERLAY': roads_layer,
-        'OUTPUT': 'memory:'
-    }
-    try:
-        res = processing.run('native:clip', params)
-        out = res.get('OUTPUT')
-        if isinstance(out, QgsVectorLayer):
-            return out
-        layer = QgsVectorLayer(out, 'clipped', 'ogr')
-        return layer
-    except Exception as e:
-        label = context_label or 'unknown'
-        msg = f"Clipping failed for {label}: {e}"
-        print('  ->', msg)
-        if errors is not None:
-            errors.append(msg)
-            errors.append(traceback.format_exc())
-        return None
-
-
-def merge_layers(layers, target_crs, output_path):
-    params = {
-        'LAYERS': layers,
-        'CRS': target_crs,
-        'OUTPUT': output_path
-    }
-    res = processing.run('native:mergevectorlayers', params)
-    return res['OUTPUT']
-
-
-def main(roads_path, masks_dir, output_dir, value_field='DN', layer_name='clipped_vector_masks'):
-
-    # Load roads layer
-    roads = QgsVectorLayer(roads_path, 'roads', 'ogr')
-    if not roads.isValid():
-        print('ERROR: roads layer failed to load:', roads_path)
-        sys.exit(1)
+    
+def main(masks_dir, output_dir, value_field='DN'):
 
     # Find raster files
     raster_files = sorted(glob.glob(os.path.join(masks_dir, '*.tif')) + glob.glob(os.path.join(masks_dir, '*.tiff')))
@@ -120,21 +85,8 @@ def main(roads_path, masks_dir, output_dir, value_field='DN', layer_name='clippe
             print(f'  -> polygonize failed for {rpath}, skipping')
             continue
 
-        # Clip by roads polygon
-        clipped = clip_by_roads(poly, roads, context_label=base, errors=errors)
-        if clipped is None:
-            print(f'  -> clipping failed for {base}, skipping')
-            continue
-
-        # Skip empty layers
-        if clipped.featureCount() == 0:
-            print('  -> no features after clipping, skipping')
-            continue
-
-        print('  -> clipped features:', clipped.featureCount())
-
         # Extract and save each feature individually (one file per feature)
-        for feat in clipped.getFeatures():
+        for feat in poly.getFeatures():
             fid = feat.id()
             out_fp = os.path.join(output_dir, f"{base}_clipped_f{fid}.gpkg")
 
@@ -148,7 +100,7 @@ def main(roads_path, masks_dir, output_dir, value_field='DN', layer_name='clippe
             print(f'  -> extracting feature id {fid}')
             expr = f"$id = {fid}"
             try:
-                res_ext = processing.run('native:extractbyexpression', {'INPUT': clipped, 'EXPRESSION': expr, 'OUTPUT': 'memory:'})
+                res_ext = processing.run('native:extractbyexpression', {'INPUT': poly, 'EXPRESSION': expr, 'OUTPUT': 'memory:'})
                 single = res_ext.get('OUTPUT')
                 if single is None:
                     msg = f"Extraction returned no layer for {base} feature {fid}"
@@ -199,4 +151,4 @@ def main(roads_path, masks_dir, output_dir, value_field='DN', layer_name='clippe
         except Exception as e:
             print('Failed to write error log file:', e)
 
-main(roads_path, masks_dir, output_dir, layer_name='clipped_vector_masks')
+main(masks_dir, output_dir)

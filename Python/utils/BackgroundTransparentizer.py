@@ -60,8 +60,8 @@ def iter_png_files(input_dir: Path, recursive: bool = True):
 
 def main(argv: list[str] | None = None) -> int:
 
-    input_dir = Path(r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\Result_Segmentation\20260103_1810\PredMasks")
-    output_dir = Path(r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\Pred_MaskPNG")
+    input_dir = Path(r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskPNG\GT")
+    output_dir = Path(r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskPNG_Transparent\GT")
     overwrite = True
 
     if not input_dir.exists() or not input_dir.is_dir():

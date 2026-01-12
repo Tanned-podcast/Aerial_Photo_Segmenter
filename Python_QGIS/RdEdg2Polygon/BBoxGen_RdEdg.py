@@ -43,6 +43,15 @@ dist_calc.setEllipsoid('GRS80')
 fields = QgsFields()
 fields.append(QgsField('angle_deg_clockwise', QVariant.Double))
 fields.append(QgsField('width_m', QVariant.Double))
+# coordinates of the polygon edge that is most nearly perpendicular to road segments in D
+fields.append(QgsField('perp_vertexID_start', QVariant.Int))
+fields.append(QgsField('perp_vertexID_end', QVariant.Int))
+fields.append(QgsField('perp_x1', QVariant.Double))
+fields.append(QgsField('perp_y1', QVariant.Double))
+fields.append(QgsField('perp_x2', QVariant.Double))
+fields.append(QgsField('perp_y2', QVariant.Double))
+# how far (in degrees) this best edge is from exact 90° (0.0 = perfect perp)
+fields.append(QgsField('perp_err_deg', QVariant.Double))
 geom_type = QgsWkbTypes.Polygon
 h_layer = QgsVectorLayer(f'Polygon?crs={crs.authid()}', 'H_mem', 'memory')
 pr = h_layer.dataProvider()
@@ -130,6 +139,22 @@ for mask_file in mask_files:
         theta = sum(feat_angles) / len(feat_angles) if feat_angles else 0.0
         theta = math.degrees(theta)  # degreeに変換
 
+    # # compute road segment angles (degrees) from D (used to find perpendicular polygon edge later)
+    # road_angles_deg = []
+    # for dfeat in dfeats:
+    #     dgeom = dfeat.geometry()
+    #     if dgeom.isEmpty():
+    #         continue
+    #     coords = []
+    #     for v in dgeom.vertices():
+    #         coords.append((v.x(), v.y()))
+    #     for i in range(len(coords) - 1):
+    #         x1, y1 = coords[i]
+    #         x2, y2 = coords[i + 1]
+    #         ang = math.degrees(math.atan2(y2 - y1, x2 - x1))
+    #         road_angles_deg.append(ang)
+    # # if no road segment angles were found, road_angles_deg will be empty and we'll skip perp-edge selection later
+
     # Define E such that rotating polygon CCW by E aligns road horizontally:
     # E = -theta (radians). We'll store angle in degrees (angle_deg).
     angle_deg = -theta
@@ -155,10 +180,64 @@ for mask_file in mask_files:
 
     angle_deg_clockwise = -angle_deg  # store clockwise angle
 
+    # Determine polygon edge of H most nearly perpendicular to the road segments in D
+    perp_x1 = perp_y1 = perp_x2 = perp_y2 = None
+    perp_err = None
+    if theta and not h_geom.isEmpty():
+        poly = h_geom.asPolygon()
+        if poly:
+            ring = poly[0]
+            n = len(ring)
+            if n >= 2:
+                best_angle_val = -1.0
+                best_coords = None
+                best_err = None
+                for i in range(n - 1):  # last point is same as first in closed ring
+                    p1 = ring[i]
+                    p2 = ring[i + 1]
+                    dx = p2.x() - p1.x()
+                    dy = p2.y() - p1.y()
+                    edge_ang = math.degrees(math.atan2(dy, dx))
+
+                    # For this edge, find the road segment angle that gives the maximum angle between them
+                    # (i.e., closest to 90°). min_angle_between returns angle in [0,90].
+                    def min_angle_between(a, b):
+                        diff = abs(a - b) % 180
+                        return diff if diff <= 180 - diff else 180 - diff
+
+                    best_for_edge = 0.0
+                    val = min_angle_between(edge_ang, theta)
+                    if val > best_for_edge:
+                        best_for_edge = val
+
+                    # best_for_edge is in [0,90], closer to 90 => more perpendicular
+                    if best_for_edge > best_angle_val:
+                        best_angle_val = best_for_edge
+                        best_coords = (p1.x(), p1.y(), p2.x(), p2.y())
+                        best_err = 90.0 - best_for_edge
+                        best_id_start = i
+                        best_id_end = (i + 1) % (n - 1)
+
+                if best_coords:
+                    perp_x1, perp_y1, perp_x2, perp_y2 = best_coords
+                    perp_err = float(best_err)
+                    perp_vertexID_start = best_id_start
+                    perp_vertexID_end = best_id_end
+
     # Add H feature to a temporary single-feature memory layer and save it (prevents accumulation)
     hfeat = QgsFeature()
     hfeat.setGeometry(h_geom)
-    hfeat.setAttributes([float(angle_deg_clockwise), float(width_m)])
+    hfeat.setAttributes([
+        float(angle_deg_clockwise),
+        float(width_m),
+        None if perp_vertexID_start is None else perp_vertexID_start,
+        None if perp_vertexID_end is None else perp_vertexID_end,
+        None if perp_x1 is None else float(perp_x1),
+        None if perp_y1 is None else float(perp_y1),
+        None if perp_x2 is None else float(perp_x2),
+        None if perp_y2 is None else float(perp_y2),
+        None if perp_err is None else float(perp_err),
+    ])
 
     # create single feature memory layer (only current H)
     h_single = QgsVectorLayer(f'Polygon?crs={crs.authid()}', 'H_single', 'memory')
