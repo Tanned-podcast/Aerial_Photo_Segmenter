@@ -166,10 +166,10 @@ for mask_file in mask_files:
     # 5: Bounding box of F -> G (axis-aligned)
     bbox = f_geom.boundingBox()
     # compute width in meters using ellipsoidal distance (GRS80)
-    p1 = QgsPointXY(bbox.xMinimum(), bbox.yMinimum())
-    p2 = QgsPointXY(bbox.xMaximum(), bbox.yMinimum())
-    line_geom = QgsGeometry.fromPolylineXY([p1, p2])
-    width_m = dist_calc.measureLength(line_geom)
+    # p1 = QgsPointXY(bbox.xMinimum(), bbox.yMinimum())
+    # p2 = QgsPointXY(bbox.xMaximum(), bbox.yMinimum())
+    # line_geom = QgsGeometry.fromPolylineXY([p1, p2])
+    # width_m = dist_calc.measureLength(line_geom)
 
     # create bbox polygon geometry (G)
     rect_geom = QgsGeometry.fromRect(QgsRectangle(bbox.xMinimum(), bbox.yMinimum(), bbox.xMaximum(), bbox.yMaximum()))
@@ -213,6 +213,7 @@ for mask_file in mask_files:
                     # best_for_edge is in [0,90], closer to 90 => more perpendicular
                     if best_for_edge > best_angle_val:
                         best_angle_val = best_for_edge
+                        best_points = [p1, p2]
                         best_coords = (p1.x(), p1.y(), p2.x(), p2.y())
                         best_err = 90.0 - best_for_edge
                         best_id_start = i
@@ -220,6 +221,8 @@ for mask_file in mask_files:
 
                 if best_coords:
                     perp_x1, perp_y1, perp_x2, perp_y2 = best_coords
+                    line_geom = QgsGeometry.fromPolylineXY(best_points)
+                    width_m = dist_calc.measureLength(line_geom)
                     perp_err = float(best_err)
                     perp_vertexID_start = best_id_start
                     perp_vertexID_end = best_id_end
