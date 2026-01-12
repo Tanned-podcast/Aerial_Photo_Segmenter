@@ -189,7 +189,7 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_lis
         # Prepare output memory layer for E lines
         fields = QgsFields()
         fields.append(QgsField("orig_fid", QVariant.Int))
-        fields.append(QgsField("original_road_width", QVariant.Double))
+        fields.append(QgsField("original_road_width_m", QVariant.Double))
 
         crs_out = layerA.crs()
         mem_layer = QgsVectorLayer(f"LineString?crs={crs_out.authid()}", f"{base_name}_E", "memory")
@@ -198,13 +198,23 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_lis
         mem_layer.updateFields()
 
         # Ensure 'original_road_width' attribute exists in layerA; add if necessary
-        if "original_road_width" not in [fld.name() for fld in layerA.fields()]:
+        if "original_road_width_m" not in [fld.name() for fld in layerA.fields()]:
             caps = layerA.dataProvider().capabilities()
             try:
-                layerA.dataProvider().addAttributes([QgsField("original_road_width", QVariant.Double)])
+                layerA.dataProvider().addAttributes([QgsField("original_road_width_m", QVariant.Double)])
                 layerA.updateFields()
             except Exception as e:
-                print("  -> Failed to add 'original_road_width' field to LayerA:", e)
+                print("  -> Failed to add 'original_road_width_m' field to LayerA:", e)
+                # continue anyway; we will try to edit attributes if possible
+
+        # Ensure 'remaining_road_width_m' attribute exists in layerA; add if necessary
+        if "remaining_road_width_m" not in [fld.name() for fld in layerA.fields()]:
+            caps = layerA.dataProvider().capabilities()
+            try:
+                layerA.dataProvider().addAttributes([QgsField("remaining_road_width_m", QVariant.Double)])
+                layerA.updateFields()
+            except Exception as e:
+                print("  -> Failed to add 'remaining_road_width_m' field to LayerA:", e)
                 # continue anyway; we will try to edit attributes if possible
 
         # For metric computations, decide a metric CRS (use UTM based on centroid lon/lat)
@@ -375,16 +385,23 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_lis
 
         # Update layerA attribute 'original_road_width'
         try:
-            f_idx = layerA.fields().indexFromName("original_road_width")
+            f_idx = layerA.fields().indexFromName("original_road_width_m")
             layerA.changeAttributeValue(featA.id(), f_idx, float(length_m))
         except Exception as e:
-            print("  -> Failed to set 'original_road_width' on feature:", e)
+            print("  -> Failed to set 'original_road_width_m' on feature:", e)
+
+        # Update layerA attribute 'remaining_road_width_m'
+        try:
+            f_idx = layerA.fields().indexFromName("remaining_road_width_m")
+            layerA.changeAttributeValue(featA.id(), f_idx, float(length_m) - float(featA.attribute("width_m")))
+        except Exception as e:
+            print("  -> Failed to set 'remaining_road_width_m' on feature:", e)
 
         # Add feature to E output layer
         out_feat = QgsFeature()
         out_feat.setFields(mem_layer.fields())
         out_feat.setAttribute("orig_fid", int(featA.id()))
-        out_feat.setAttribute("original_road_width", float(length_m))
+        out_feat.setAttribute("original_road_width_m", float(length_m))
         out_feat.setGeometry(lineE)
         prov.addFeatures([out_feat])
 
