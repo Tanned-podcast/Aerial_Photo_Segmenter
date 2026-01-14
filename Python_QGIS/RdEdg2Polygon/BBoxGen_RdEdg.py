@@ -9,23 +9,27 @@
 from qgis.core import (
     QgsVectorLayer, QgsFeature, QgsGeometry, QgsPointXY, QgsFields, QgsField,
     QgsWkbTypes, QgsProject, QgsVectorFileWriter, QgsRectangle, QgsFeatureRequest,
-    QgsVectorLayer, QgsCoordinateTransformContext, QgsMemoryProviderUtils, QgsDistanceArea
+    QgsVectorLayer, QgsCoordinateTransformContext, QgsMemoryProviderUtils, QgsDistanceArea, QgsGeometryUtilsBase
 )
 import processing
 from PyQt5.QtCore import QVariant
 import math, os, csv
-import glob
+import glob, datetime
 
 # ----------------------
 # === Configuration ===
 # ----------------------
-ROAD_LAYER_PATH = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\passabilitytest_filtered_wajima_kibanchizu_rdedg_clipped.gpkg"  # line layer (A)
-masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\MaskVector"  # list of polygon layers (one or many)
-EPSILON = 0.000001              # buffer distance epsilon (same CRS units as input; small)
-OUTPUT_CSV = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\output.csv"
-output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\MaskBBox"
+ROAD_LAYER_PATH = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_rdedg_edited.gpkg"  # line layer (A)
+masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Fails\MaskVector_Clipped"  # list of polygon layers (one or many)
+EPSILON = 0.000003
+EPSILON_ANGLE = 0.000001
+OUTPUT_CSV = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Fails\Result_QGIS\output_suzu.csv"
+output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Fails\MaskBBox"
 BUFFER_SEGMENTS = 8        # buffer resolution
 # ----------------------
+
+# Collect error logs
+errors =[]
 
 # Load road layer
 road_layer = QgsVectorLayer(ROAD_LAYER_PATH, 'road', 'ogr')
@@ -77,13 +81,17 @@ for mask_file in mask_files:
     # load layer and its geometry
     dmg_layer = QgsVectorLayer(mask_file, 'damage', 'ogr')
     if not dmg_layer.isValid():
-        print(f'Warning: failed to open damage layer {mask_file}, skipping.')
+        msg = f'Warning: failed to open damage layer {mask_file}, skipping.'
+        errors.append(msg)
+        print(msg)
         continue
     
     feat = next(dmg_layer.getFeatures())
     geom = feat.geometry()
     if geom is None or geom.isEmpty():
-        print(f'Warning: file {mask_file} has empty geometry; skipping.')
+        msg = f'Warning: file {mask_file} has empty geometry; skipping.'
+        errors.append(msg)
+        print(msg)
         continue
 
     centroid = geom.centroid().asPoint()
@@ -125,35 +133,24 @@ for mask_file in mask_files:
     if len(pts) < 2:
         # fallback: if no clipped lines, set angle 0 and continue
         theta = 0.0
-        print(f'Info: no intersection for file {mask_file}; using angle 0.')
+        msg = f'Info: no intersection for file {mask_file}; skipping.'
+        errors.append(msg)
+        print(msg)
+        continue
     else:
         for dfeat in dfeats:
             dgeom = dfeat.geometry()
             if dgeom.isEmpty():
-                print("dgeom is empty, skipping")
+                msg = f"dgeom is empty for {mask_file}, id {dfeat.id()}, skipping"
+                errors.append(msg)
+                print(msg)
                 continue
 
-            angle_rad = dgeom.interpolateAngle(EPSILON)  # ラジアン
+            angle_rad = dgeom.interpolateAngle(EPSILON_ANGLE)  # ラジアン
             feat_angles.append(angle_rad)
 
         theta = sum(feat_angles) / len(feat_angles) if feat_angles else 0.0
         theta = math.degrees(theta)  # degreeに変換
-
-    # # compute road segment angles (degrees) from D (used to find perpendicular polygon edge later)
-    # road_angles_deg = []
-    # for dfeat in dfeats:
-    #     dgeom = dfeat.geometry()
-    #     if dgeom.isEmpty():
-    #         continue
-    #     coords = []
-    #     for v in dgeom.vertices():
-    #         coords.append((v.x(), v.y()))
-    #     for i in range(len(coords) - 1):
-    #         x1, y1 = coords[i]
-    #         x2, y2 = coords[i + 1]
-    #         ang = math.degrees(math.atan2(y2 - y1, x2 - x1))
-    #         road_angles_deg.append(ang)
-    # # if no road segment angles were found, road_angles_deg will be empty and we'll skip perp-edge selection later
 
     # Define E such that rotating polygon CCW by E aligns road horizontally:
     # E = -theta (radians). We'll store angle in degrees (angle_deg).
@@ -165,11 +162,6 @@ for mask_file in mask_files:
 
     # 5: Bounding box of F -> G (axis-aligned)
     bbox = f_geom.boundingBox()
-    # compute width in meters using ellipsoidal distance (GRS80)
-    # p1 = QgsPointXY(bbox.xMinimum(), bbox.yMinimum())
-    # p2 = QgsPointXY(bbox.xMaximum(), bbox.yMinimum())
-    # line_geom = QgsGeometry.fromPolylineXY([p1, p2])
-    # width_m = dist_calc.measureLength(line_geom)
 
     # create bbox polygon geometry (G)
     rect_geom = QgsGeometry.fromRect(QgsRectangle(bbox.xMinimum(), bbox.yMinimum(), bbox.xMaximum(), bbox.yMaximum()))
@@ -197,7 +189,8 @@ for mask_file in mask_files:
                     p2 = ring[i + 1]
                     dx = p2.x() - p1.x()
                     dy = p2.y() - p1.y()
-                    edge_ang = math.degrees(math.atan2(dy, dx))
+                    # Calculate Angle CW with 0 deg = North: NO "math.atan2" (0 deg isn't North) !!!
+                    edge_ang = math.degrees(QgsGeometryUtilsBase.lineAngle(p1.x(), p1.y(), p2.x(), p2.y()))
 
                     # For this edge, find the road segment angle that gives the maximum angle between them
                     # (i.e., closest to 90°). min_angle_between returns angle in [0,90].
@@ -261,7 +254,9 @@ for mask_file in mask_files:
     try:
         res = processing.run('native:savefeatures', {'INPUT': h_single, 'OUTPUT': out_fp})
     except Exception as e:
-        print(f'    -> failed to save file {mask_file}: {e}')
+        msg = f'    -> failed to save file {mask_file}: {e}'
+        errors.append(msg)
+        print(msg)
         continue
 
     if res and res.get('OUTPUT'):
@@ -277,3 +272,17 @@ if saved_count == 0:
     print('No clipped features were saved. Exiting.')
 else:
     print(f'Done. Saved {saved_count} clipped layers to directory: {output_dir}')
+
+    # If any errors collected, write them to a log file in output_dir
+    if errors:
+        err_fp = os.path.join(output_dir, f"processing_errors_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+        try:
+            with open(err_fp, 'w', encoding='utf-8') as ef:
+                ef.write(f"Processing errors for run: {datetime.datetime.now().isoformat()}\n")
+                ef.write(f"Source masks dir: {masks_dir}\n")
+                ef.write("Errors:\n")
+                for e in errors:
+                    ef.write(e + '\n')
+            print('Wrote error log to:', err_fp)
+        except Exception as e:
+            print('Failed to write error log file:', e)

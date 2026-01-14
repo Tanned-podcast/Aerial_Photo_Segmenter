@@ -27,9 +27,9 @@ from qgis.core import QgsVectorLayer
 import processing
 
 
-roads_path = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\passabilitytest_polygon_wajima_kibanchizu_rdedg_clipped.gpkg"
-masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\MaskTIFFs"
-output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\MaskVector"
+roads_path = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_rdedg_edited_dissolved_polygon.gpkg"
+masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskTIFFs\Pred"
+output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskVector_Clipped\Pred_suzu"
 
 
 def polygonize_raster(raster_path, value_field="DN", errors=None):
@@ -124,11 +124,13 @@ def main(roads_path, masks_dir, output_dir, value_field='DN', layer_name='clippe
         clipped = clip_by_roads(poly, roads, context_label=base, errors=errors)
         if clipped is None:
             print(f'  -> clipping failed for {base}, skipping')
+            errors.append(f'Clipping failed for {base}')
             continue
 
         # Skip empty layers
         if clipped.featureCount() == 0:
             print('  -> no features after clipping, skipping')
+            errors.append(f'No features after clipping for {base}')
             continue
 
         print('  -> clipped features:', clipped.featureCount())

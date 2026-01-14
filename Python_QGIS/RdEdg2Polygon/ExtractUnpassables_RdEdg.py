@@ -119,8 +119,8 @@ def merge_filtered_polygons(input_dir, output_gpkg, output_layer_name, threshold
 
 
 threshold = 4.0  # threshold for remaining_road_width_m
-input_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\MaskBBox"
-output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\Result\filtered_unpassables_thres{int(threshold)}m.gpkg"
+input_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\GT"
+output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\GT\filtered_unpassables_thres{int(threshold)}m.gpkg"
 output_layer_name='filtered_unpassables'
 
 merge_filtered_polygons(input_dir, output_gpkg, output_layer_name='filtered_unpassables', threshold=threshold)

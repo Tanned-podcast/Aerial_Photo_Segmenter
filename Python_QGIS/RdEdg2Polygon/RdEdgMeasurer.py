@@ -12,7 +12,8 @@ PyQGIS script that:
 """
 
 import os
-import math
+import math, datetime
+
 from qgis.core import (
     QgsVectorLayer, QgsProject, QgsFeature, QgsGeometry, QgsPointXY,
     QgsDistanceArea, QgsField, QgsFields, QgsVectorFileWriter, QgsWkbTypes,
@@ -20,6 +21,8 @@ from qgis.core import (
     QgsFeatureRequest, QgsRectangle
 )
 from PyQt5.QtCore import QVariant
+
+errors = []  # Collect error logs
 
 # ----------------------------
 # Utility functions
@@ -80,14 +83,12 @@ def extract_points_from_geometry(geom):
 # ----------------------------
 # Main processing function
 # ----------------------------
-def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_list_txt,
-                              long_line_length_m=20000):
+def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_line_length_m=20000):
     """
     dir_A: directory containing LayerA files (each file treated as separate layer)
     path_layerB: path to road edge layer (line)
     path_layerC: path to road area layer (polygon)
     out_dir: directory where to write output E layers
-    skip_list_txt: path to write skipped filenames
     long_line_length_m: total length of D in meters (default 20 km)
     """
 
@@ -123,8 +124,6 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_lis
 
     # print(f"geom_dict_C: {geom_dict_C}")
 
-    skip_files = []
-
     layer_files = list_layer_files_in_dir(dir_A)
     print(f"Found {len(layer_files)} layer files in {dir_A}")
 
@@ -135,35 +134,38 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_lis
         print(f"Processing LayerA: {file_path} ...")
         layerA = QgsVectorLayer(file_path, base_name, "ogr")
         if not layerA.isValid():
-            print(f"  -> Failed to open {file_path}, skipping.")
-            skip_files.append(os.path.basename(file_path))
+            msg = f"  -> Failed to open {file_path}, skipping."
+            errors.append(msg)
+            print(msg)
             continue
 
         featA = next(layerA.getFeatures())
         if not featA:
-            print(f"  -> No features in {file_path}, skipping.")
-            skip_files.append(os.path.basename(file_path))
+            msg = f"  -> No features in {file_path}, skipping."
+            errors.append(msg)
+            print(msg)
             continue
 
         print(f"layerA.crs(), {layerA.crs()}, layerC.crs(), {layerC.crs()}")
 
         # Pre-check: all centroids must be within some polygon of layerC.
         transform_A_to_C = QgsCoordinateTransform(layerA.crs(), layerC.crs(), ctx)
-        not_contained = False
 
         cen = featA.geometry().centroid()
         if cen is None or cen.isEmpty():
-            print(f"  -> Feature {featA.id()} centroid empty, skipping layer.")
-            not_contained = True
-            break
+            msg = f"  -> Feature {featA.id()} centroid empty, skipping layer."
+            errors.append(msg)
+            print(msg)
+            continue
         # create a safe copy of centroid geometry
         cen_inC = QgsGeometry.fromWkt(cen.asWkt())
         try:
             cen_inC.transform(transform_A_to_C)
         except Exception as e:
-            print("  -> Transform to LayerC CRS failed:", e)
-            not_contained = True
-            break
+            msg = f"  -> Transform to LayerC CRS failed for {file_path}, skipping: {e}"
+            errors.append(msg)
+            print(msg)
+            continue
 
         print("transform_A_to_C done")
 
@@ -174,17 +176,12 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_lis
             poly_geom = geom_dict_C.get(cid)
             if poly_geom and poly_geom.contains(cen_inC):
                 contained_flag = True
-                break
+                continue
         if not contained_flag:
-            print(f"  -> Feature {featA.id()} centroid not in any LayerC polygon, skipping whole layer.")
-            not_contained = True
-            break
-
-        if not_contained:
-            skip_files.append(os.path.basename(file_path))
-            continue  # skip this LayerA file entirely
-
-        # print(f"contained:{contained_flag}, not contained:{not_contained}")
+            msg = f"  -> For file {file_path}, Feature {featA.id()} centroid not in any LayerC polygon, skipping whole layer."
+            errors.append(msg)
+            print(msg)
+            continue
 
         # Prepare output memory layer for E lines
         fields = QgsFields()
@@ -204,8 +201,10 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_lis
                 layerA.dataProvider().addAttributes([QgsField("original_road_width_m", QVariant.Double)])
                 layerA.updateFields()
             except Exception as e:
-                print("  -> Failed to add 'original_road_width_m' field to LayerA:", e)
-                # continue anyway; we will try to edit attributes if possible
+                msg = f"  -> Failed to add 'original_road_width_m' field to LayerA {file_path}: {e}"
+                errors.append(msg)
+                print(msg)
+                continue
 
         # Ensure 'remaining_road_width_m' attribute exists in layerA; add if necessary
         if "remaining_road_width_m" not in [fld.name() for fld in layerA.fields()]:
@@ -214,8 +213,10 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_lis
                 layerA.dataProvider().addAttributes([QgsField("remaining_road_width_m", QVariant.Double)])
                 layerA.updateFields()
             except Exception as e:
-                print("  -> Failed to add 'remaining_road_width_m' field to LayerA:", e)
-                # continue anyway; we will try to edit attributes if possible
+                msg = f"  -> Failed to add 'remaining_road_width_m' field to LayerA {file_path}: {e}"   
+                errors.append(msg)
+                print(msg)
+                continue
 
         # For metric computations, decide a metric CRS (use UTM based on centroid lon/lat)
         # We'll pick the UTM zone from the first feature centroid (assume consistent area)
@@ -257,14 +258,16 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_lis
         px2 = featA.attribute("perp_x2")
         py2 = featA.attribute("perp_y2")
         if px1 is None or py1 is None or px2 is None or py2 is None:
-            skip_files.append(os.path.basename(file_path))
-            print(f"  -> Feature {featA.id()} missing perp_* attributes, skipping this feature.")
+            msg = f"  -> File {file_path} Feature {featA.id()} missing perp_* attributes, skipping this feature."
+            errors.append(msg)
+            print(msg)
             continue
         try:
             lon1 = float(px1); lat1 = float(py1); lon2 = float(px2); lat2 = float(py2)
         except Exception as e:
-            skip_files.append(os.path.basename(file_path))
-            print(f"  -> Feature {featA.id()} perp_* attributes not numeric, skipping: {e}")
+            msg = f"  -> File {file_path} Feature {featA.id()} perp_* attributes not numeric, skipping: {e}"
+            errors.append(msg)
+            print(msg)
             continue
         # create point geometries in EPSG:4326 and transform to metric CRS (utm_crs)
         p1_4326 = QgsGeometry.fromPointXY(QgsPointXY(lon1, lat1))
@@ -274,16 +277,18 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_lis
             p1_4326.transform(trans_4326_to_metric)
             p2_4326.transform(trans_4326_to_metric)
         except Exception as e:
-            print(f"  -> Transform perp points to metric CRS failed for feature {featA.id()}: {e}")
-            skip_files.append(os.path.basename(file_path))
+            msg = f"  -> File {file_path} Transform perp points to metric CRS failed for feature {featA.id()}, skipping: {e}"
+            errors.append(msg)
+            print(msg)
             continue
         p1m = p1_4326.asPoint()
         p2m = p2_4326.asPoint()
         dx_p = p2m.x() - p1m.x()
         dy_p = p2m.y() - p1m.y()
         if abs(dx_p) < 1e-9 and abs(dy_p) < 1e-9:
-            skip_files.append(os.path.basename(file_path))
-            print(f"  -> perp points identical for feature {featA.id()}, skipping.")
+            msg = f"  -> File {file_path} Feature {featA.id()} perp points identical, skipping."
+            errors.append(msg)
+            print(msg)
             continue
         # angle in degrees clockwise from north = degrees(atan2(dx, dy))
         angle_X = (math.degrees(math.atan2(dx_p, dy_p)) + 360.0) % 360.0
@@ -294,7 +299,9 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_lis
         try:
             cen_metric.transform(trans_A_to_metric)
         except Exception as e:
-            print("  -> transform to metric CRS failed:", e)
+            msg = f"  -> File {file_path} Transform centroid to metric CRS failed for feature {featA.id()}, skipping: {e}"
+            errors.append(msg)
+            print(msg)
             continue
         cen_m = cen_metric.asPoint()
 
@@ -311,7 +318,9 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_lis
         try:
             D_in_B.transform(trans_metric_to_B)
         except Exception as e:
-            print("  -> transform D to LayerB CRS failed:", e)
+            msg = f"  -> File {file_path} Transform D to LayerB CRS failed for feature {featA.id()}, skipping: {e}"
+            errors.append(msg)
+            print(msg)
             continue
         bboxB = D_in_B.boundingBox()
         candidate_ids_B = indexB.intersects(bboxB)
@@ -330,7 +339,9 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_lis
                 print(f"D_for_intersect : {D_for_intersect}")
                 print(f"inter: {inter}")
             except Exception as e:
-                print(f"  -> intersection failed for feature {bid}: {e}")
+                msg = f"  -> File {file_path} intersection failed for feature {bid}: {e}, skipping"
+                errors.append(msg)
+                print(msg)
                 continue
             pts = extract_points_from_geometry(inter)
             # pts are in LayerB CRS; transform each to metric CRS and append
@@ -344,8 +355,9 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_lis
                     continue
 
         if len(intersection_points_metric) < 2:
-            skip_files.append(os.path.basename(file_path))
-            print(f"  -> Feature {featA.id()} intersection points < 2, skipping this feature.")
+            msg = f"  -> File {file_path} Feature {featA.id()} intersection points < 2, skipping this feature."
+            errors.append(msg)
+            print(msg)
             continue
 
         # compute distances from centroid to intersection points (metric)
@@ -365,7 +377,9 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_lis
             p1_geom_metric.transform(trans_metric_to_A)
             p2_geom_metric.transform(trans_metric_to_A)
         except Exception as e:
-            print("  -> transform intersection point back to LayerA CRS failed:", e)
+            msg = f"  -> File {file_path} Transform intersection point back to LayerA CRS failed for feature {featA.id()}, skipping: {e}"
+            errors.append(msg)
+            print(msg)
             continue
         p1_a = QgsPointXY(p1_geom_metric.asPoint())
         p2_a = QgsPointXY(p2_geom_metric.asPoint())
@@ -388,14 +402,20 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_lis
             f_idx = layerA.fields().indexFromName("original_road_width_m")
             layerA.changeAttributeValue(featA.id(), f_idx, float(length_m))
         except Exception as e:
-            print("  -> Failed to set 'original_road_width_m' on feature:", e)
+            msg = f"  -> File {file_path} Failed to set 'original_road_width_m' on feature {featA.id()}: {e}"
+            errors.append(msg)
+            print(msg)
+            continue
 
         # Update layerA attribute 'remaining_road_width_m'
         try:
             f_idx = layerA.fields().indexFromName("remaining_road_width_m")
             layerA.changeAttributeValue(featA.id(), f_idx, float(length_m) - float(featA.attribute("width_m")))
         except Exception as e:
-            print("  -> Failed to set 'remaining_road_width_m' on feature:", e)
+            msg = f"  -> File {file_path} Failed to set 'remaining_road_width_m' on feature {featA.id()}: {e}"
+            errors.append(msg)
+            print(msg)
+            continue
 
         # Add feature to E output layer
         out_feat = QgsFeature()
@@ -416,19 +436,24 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_lis
         else:
             print(f"  -> Failed to write E layer for {base_name}. Error code: {error}")
 
-    # write skip list to txt
-    with open(skip_list_txt, "w", encoding="utf-8") as fh:
-        for s in skip_files:
-            fh.write(s + "\n")
-    print(f"Processing finished. Skipped {len(skip_files)} files. Skip list saved to: {skip_list_txt}")
+    # If any errors collected, write them to a log file in output_dir
+    if errors:
+        err_fp = os.path.join(out_dir, f"processing_errors_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+        try:
+            with open(err_fp, 'w', encoding='utf-8') as ef:
+                ef.write(f"Processing errors for run: {datetime.datetime.now().isoformat()}\n")
+                ef.write("Errors:\n")
+                for e in errors:
+                    ef.write(e + '\n')
+            print('Wrote error log to:', err_fp)
+        except Exception as e:
+            print('Failed to write error log file:', e)
 
 
-dir_A = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\MaskBBox"
-path_layerB = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\passabilitytest_dissolved_wajima_kibanchizu_rdedg_clipped.gpkg"
-path_layerC = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\passabilitytest_polygon_wajima_kibanchizu_rdedg_clipped.gpkg"
-out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\RoadWidthLine"
-skip_list_txt = out_dir + "/skip_list.txt"
+dir_A = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\GT_suzu"
+path_layerB = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_rdedg_edited_dissolved.gpkg"
+path_layerC = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_rdedg_edited_dissolved_polygon.gpkg"
+out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Passability_WidthLine\GT_suzu"
 long_line_length = 100  
 
-process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, skip_list_txt,
-                              long_line_length)
+process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_line_length)

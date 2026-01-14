@@ -247,10 +247,10 @@ def run_from_paths(path_layer_a: str, dir_masks: str, path_layer_e: str, output_
 
 
 
-example_dir_masks = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\MaskPolygon"
-example_layer_a = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\Roadline\DRM_wajima_ONLYurban_NOTsunami_SegAdjusted.gpkg"
-example_layer_e = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\wajima_kibanchizu_rdedg.gpkg"
-example_output = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RdEdg\wajima_kibanchizu_rdedg_clipped.gpkg"
+example_dir_masks = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskVector_Unclipped\Pred"
+example_layer_a = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Roadline\DRM_suzu_ONLYurban_NOTsunami.gpkg"
+example_layer_e = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_kibanchizu_rdedg.gpkg"
+example_output = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_kibanchizu_rdedg_clipped.gpkg"
 buffer_distance = 0.0004
 
 

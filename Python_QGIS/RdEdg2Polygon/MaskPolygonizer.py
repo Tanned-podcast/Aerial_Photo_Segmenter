@@ -19,7 +19,6 @@ Note: run inside QGIS Python environment (processing must be available).
 """
 
 import os
-import sys
 import glob
 import datetime
 import traceback
@@ -28,9 +27,8 @@ from qgis.core import QgsVectorLayer
 import processing
 
 
-roads_path = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\RoadBuffer\RoadBuffer_ALLAREA_MultiWidth_min_DRM_wajima_ONLYurban_NOTsunami_SegAdjusted.gpkg"
-masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\MaskTIFFs"
-output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\MaskPolygon"
+masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskTIFFs\Pred"
+output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskVector_Unclipped\Pred"
 
 
 def polygonize_raster(raster_path, value_field="DN", errors=None):
@@ -68,7 +66,7 @@ def main(masks_dir, output_dir, value_field='DN'):
     raster_files = sorted(glob.glob(os.path.join(masks_dir, '*.tif')) + glob.glob(os.path.join(masks_dir, '*.tiff')))
     if not raster_files:
         print('ERROR: no raster files found in', masks_dir)
-        sys.exit(1)
+        return
 
     os.makedirs(output_dir, exist_ok=True)
 
