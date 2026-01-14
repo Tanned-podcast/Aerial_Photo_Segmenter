@@ -112,8 +112,6 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_lin
             # copy geometry safely (QgsGeometry.clone() may not be available)
             geom_dict_B[f.id()] = QgsGeometry.fromWkt(geom.asWkt())
 
-    # print(f"geom_dict_B: {geom_dict_B}")
-
     indexC = QgsSpatialIndex()
     geom_dict_C = {}
     for f in layerC.getFeatures():
@@ -121,8 +119,6 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_lin
         if geom:
             indexC.addFeature(f)
             geom_dict_C[f.id()] = QgsGeometry.fromWkt(geom.asWkt())
-
-    # print(f"geom_dict_C: {geom_dict_C}")
 
     layer_files = list_layer_files_in_dir(dir_A)
     print(f"Found {len(layer_files)} layer files in {dir_A}")
@@ -166,8 +162,6 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_lin
             errors.append(msg)
             print(msg)
             continue
-
-        print("transform_A_to_C done")
 
         bbox = cen_inC.boundingBox()
         candidate_ids = indexC.intersects(bbox)
@@ -335,9 +329,7 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_lin
                 continue
             try:
                 inter = D_for_intersect.intersection(geomB)
-                print(f"geomB : {geomB}")
-                print(f"D_for_intersect : {D_for_intersect}")
-                print(f"inter: {inter}")
+
             except Exception as e:
                 msg = f"  -> File {file_path} intersection failed for feature {bid}: {e}, skipping"
                 errors.append(msg)
@@ -430,12 +422,14 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_lin
 
         # Write mem_layer to GPKG (same base name, suffix _E)
         out_path = os.path.join(out_dir, f"{base_name}_E.gpkg")
-        error = QgsVectorFileWriter.writeAsVectorFormat(mem_layer, out_path, "utf-8", crs_out, "GPKG")
-        if error == QgsVectorFileWriter.NoError:
+        try:
+            QgsVectorFileWriter.writeAsVectorFormat(mem_layer, out_path, "utf-8", crs_out, "GPKG")
             print(f"  -> Wrote E layer to: {out_path}")
-        else:
-            print(f"  -> Failed to write E layer for {base_name}. Error code: {error}")
-
+        except Exception as e:
+            msg = f"  -> Failed to write E layer for {base_name}. Error: {e}"
+            errors.append(msg)
+            print(msg)
+        
     # If any errors collected, write them to a log file in output_dir
     if errors:
         err_fp = os.path.join(out_dir, f"processing_errors_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
@@ -450,10 +444,10 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_lin
             print('Failed to write error log file:', e)
 
 
-dir_A = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\GT_suzu"
-path_layerB = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_rdedg_edited_dissolved.gpkg"
-path_layerC = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_rdedg_edited_dissolved_polygon.gpkg"
-out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Passability_WidthLine\GT_suzu"
+dir_A = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\GT_wajima"
+path_layerB = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\wajima_rdedg_edited_dissolved.gpkg"
+path_layerC = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\wajima_rdedg_edited_dissolved_polygon.gpkg"
+out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Passability_WidthLine\GT_wajima"
 long_line_length = 100  
 
 process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_line_length)

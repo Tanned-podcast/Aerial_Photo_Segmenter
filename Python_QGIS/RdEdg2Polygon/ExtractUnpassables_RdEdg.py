@@ -1,52 +1,76 @@
 # PyQGIS script: filter and merge polygons where remaining_road_width_m > 4
 # Run in QGIS Python Console or a PyQGIS-enabled script
 
-import os
+import os, datetime
 from qgis.core import (
     QgsVectorLayer, QgsFields, QgsField, QgsFeature, QgsGeometry,
     QgsVectorFileWriter, QgsProject, QgsCoordinateTransform,
     QgsCoordinateTransformContext, QgsWkbTypes
 )
+from qgis.PyQt.QtCore import QVariant
 
-def merge_filtered_polygons(input_dir, output_gpkg, output_layer_name, threshold):
+errors = []  # collect error messages
+
+def merge_filtered_polygons(input_dir, output_gpkg, out_dir, output_layer_name, threshold):
     """
     Scan input_dir for vector files, extract features with remaining_road_width_m > threshold,
     merge into a single layer and write to output_gpkg (GeoPackage).
     """
     found_features = []  # tuples: (QgsGeometry, dict(attributes), source_crs)
-    fields_map = {}      # name -> QgsField (first-seen field definition)
+    fields_map = QgsFields()      # name -> QgsField (first-seen field definition)
     dest_crs = None
     geom_wkb_type = QgsWkbTypes.MultiPolygon
 
-    def process_layer(vlayer):
+    def process_layer(vlayer, path):
         nonlocal dest_crs
         if not vlayer or not vlayer.isValid():
-            print("Invalid layer:", vlayer)
+            msg = f"Invalid layer: {path}"
+            errors.append(msg)
+            print(msg)
             return
         # find attribute
         if vlayer.fields().indexFromName('remaining_road_width_m') == -1:
-            print("No 'remaining_road_width_m' field found.")
+            msg = f"No 'remaining_road_width_m' field found in {path}."
+            errors.append(msg)
+            print(msg)
             return
         if dest_crs is None:
             dest_crs = vlayer.crs()
-        # collect fields definitions
+        # collect fields definitions (skip 'fid' which can cause read errors)
         for f in vlayer.fields():
-            if f.name() not in fields_map:
-                fields_map[f.name()] = QgsField(f)
+            fname = f.name()
+            if fname.lower() == 'fid':
+                continue
+            if fname not in fields_map:
+                fields_map.append(QgsField(f))
+        # ensure filename field present to record source file name
+        if 'filename' not in fields_map:
+            fields_map.append(QgsField('filename', QVariant.String))
         # iterate features
         for feat in vlayer.getFeatures():
             val = feat['remaining_road_width_m']
             if val is None:
-                print("val is None")
+                msg = f"val is None for file {path} feature ID {feat.id()}"
+                errors.append(msg)
+                print(msg)
                 continue
             
             try:
-                if float(val) > float(threshold):
+                if True:
+                # if float(val) > float(threshold):
+                # if float(val) <= float(threshold):
+
                     geom = QgsGeometry.fromWkt(feat.geometry().asWkt())
-                    attrs = {f.name(): feat[f.name()] for f in vlayer.fields()}
+                    # build attributes dict but skip 'fid' to avoid read errors
+                    attrs = {f.name(): feat[f.name()] for f in vlayer.fields() if f.name().lower() != 'fid'}
+                    # add source filename (basename) so output layer records origin
+
+                    attrs['filename'] = os.path.basename(path)
                     found_features.append((geom, attrs, vlayer.crs()))
             except Exception:
-                print("feature register failed")
+                msg = f"feature register failed for file {path} feature ID {feat.id()}"
+                errors.append(msg)
+                print(msg)
                 continue
 
     # walk directory and open vector files
@@ -57,7 +81,7 @@ def merge_filtered_polygons(input_dir, output_gpkg, output_layer_name, threshold
             print("Processing file:", path)
 
             vlayer = QgsVectorLayer(path, os.path.splitext(file)[0], 'ogr')
-            process_layer(vlayer)
+            process_layer(vlayer, path)
 
     if not found_features:
         print("No features found with remaining_road_width_m >", threshold)
@@ -70,10 +94,10 @@ def merge_filtered_polygons(input_dir, output_gpkg, output_layer_name, threshold
     mem_dp = mem_layer.dataProvider()
 
     # set fields (use order of insertion)
-    ordered_fields = list(fields_map.values())
-    mem_dp.addAttributes(ordered_fields)
+    mem_dp.addAttributes(fields_map)
     mem_layer.updateFields()
 
+    print(fields_map)
     # prepare coordinate transform context
     transform_context = QgsProject.instance().transformContext()
 
@@ -116,12 +140,34 @@ def merge_filtered_polygons(input_dir, output_gpkg, output_layer_name, threshold
             print(f"Saved {len(feat_list)} features to {output_gpkg} as layer '{output_layer_name}'")
         else:
             raise RuntimeError("Error writing GeoPackage")
+        
+    # If any errors collected, write them to a log file in output_dir
+    if errors:
+        err_fp = os.path.join(out_dir, f"processing_errors_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+        try:
+            with open(err_fp, 'w', encoding='utf-8') as ef:
+                ef.write(f"Processing errors for run: {datetime.datetime.now().isoformat()}\n")
+                ef.write(f"Source output: {output_gpkg}\n")
+                ef.write("Errors:\n")
+                for e in errors:
+                    ef.write(e + '\n')
+            print('Wrote error log to:', err_fp)
+        except Exception as e:
+            print('Failed to write error log file:', e)
 
 
 threshold = 4.0  # threshold for remaining_road_width_m
-input_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\GT"
-output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\GT\filtered_unpassables_thres{int(threshold)}m.gpkg"
-output_layer_name='filtered_unpassables'
+input_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\Pred_wajima"
 
-merge_filtered_polygons(input_dir, output_gpkg, output_layer_name='filtered_unpassables', threshold=threshold)
+out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\Pred_wajima"
+
+output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\Pred_wajima\Pred_wajima_overall.gpkg"
+# output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\Pred_wajima\Pred_wajima_filtered_passables_thres{int(threshold)}m.gpkg"
+# output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\Pred_wajima\Pred_wajima_filtered_unpassables_thres{int(threshold)}m.gpkg"
+
+output_layer_name='overall'
+# output_layer_name='filtered_passables'
+# output_layer_name='filtered_unpassables'
+
+merge_filtered_polygons(input_dir, output_gpkg, out_dir=out_dir, output_layer_name=output_layer_name, threshold=threshold)
     
