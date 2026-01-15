@@ -20,7 +20,8 @@ import glob
 import datetime
 import traceback
 
-from qgis.core import QgsVectorLayer
+from qgis.core import QgsVectorLayer, QgsField, QgsFields
+from qgis.PyQt.QtCore import QVariant
 import processing
 
 
@@ -28,6 +29,9 @@ masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\SplitRoad_by_Li
 roads_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\SplitRoad_by_Link\Linkwise_RoadPolygons"
 output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\SplitRoad_by_Link\MaskVector_Clipped"
 
+
+fields = QgsFields()
+fields.append(QgsField('filename', QVariant.String))
 
 def polygonize_raster(raster_path, value_field="DN", errors=None):
     """Polygonize a raster to a temporary GeoPackage and return a QgsVectorLayer (or path)."""
@@ -107,12 +111,10 @@ def main(masks_dir, roads_dir, output_dir, value_field='DN'):
     if not raster_files:
         print('ERROR: no raster files found in', masks_dir)
 
-
     # Find road polygon files (gpkg and shp)
     road_files = sorted(glob.glob(os.path.join(roads_dir, '*.gpkg')) + glob.glob(os.path.join(roads_dir, '*.shp')))
     if not road_files:
         print('ERROR: no road polygon files found in', roads_dir)
-
 
     print(f'Found {len(raster_files)} raster files')
     print(f'Found {len(road_files)} road polygon files')
@@ -131,6 +133,7 @@ def main(masks_dir, roads_dir, output_dir, value_field='DN'):
         
         if poly is None:
             print(f'  -> polygonize failed for {rpath}, skipping')
+            errors.append(f'Polygonize failed for {rpath}')
             continue
         
         # Load as QgsVectorLayer if it's a path
@@ -143,12 +146,60 @@ def main(masks_dir, roads_dir, output_dir, value_field='DN'):
         else:
             layer = poly
         
+        # Dissolve the polygonized layer
+        print(f'  -> Dissolving polygons')
+        try:
+            res_dissolve = processing.run('native:dissolve', {
+                'INPUT': layer,
+                'FIELD': '',
+                'OUTPUT': 'memory:'
+            })
+            dissolved_layer = res_dissolve.get('OUTPUT')
+            if dissolved_layer is None:
+                if isinstance(dissolved_layer, str):
+                    layer = QgsVectorLayer(dissolved_layer, base, 'ogr')
+                else:
+                    layer = dissolved_layer
+            else:
+                if isinstance(dissolved_layer, str):
+                    layer = QgsVectorLayer(dissolved_layer, base, 'ogr')
+                else:
+                    layer = dissolved_layer
+            print(f'  -> Dissolved successfully, features: {layer.featureCount()}')
+        except Exception as e:
+            msg = f"Dissolve failed for {base}: {e}"
+            print(f'  -> {msg}')
+            errors.append(msg)
+            errors.append(traceback.format_exc())
+            # Continue with undissolved layer if dissolve fails
+        
+        # Add filename field to the layer
+        layer.startEditing()
+
+        caps = layer.dataProvider().capabilities()
+        if caps & layer.dataProvider().AddAttributes:
+            layer.dataProvider().addAttributes(fields)
+            layer.updateFields()
+        else:
+            msg = f'  -> cannot add attributes to layer {base}, skipping filename field'
+            errors.append(msg)
+            print(msg)
+            continue
+
+        
+        # Set filename field value for all features
+        for feat in layer.getFeatures():
+            feat['filename'] = base
+            layer.updateFeature(feat)
+        
+        layer.commitChanges()
+        
         print(f'  -> polygonized successfully, features: {layer.featureCount()}')
         polygonized_layers.append(layer)
     
     if not polygonized_layers:
         print('ERROR: No layers were polygonized successfully')
-
+        return
     
     # Step 2: Merge all polygonized layers into Layer A
     print(f'\n=== STEP 2: Merging {len(polygonized_layers)} polygonized layers ===')
@@ -159,34 +210,13 @@ def main(masks_dir, roads_dir, output_dir, value_field='DN'):
         if isinstance(layer_A, str):
             layer_A = QgsVectorLayer(layer_A, 'merged_masks', 'ogr')
         
-        print(f'  -> Merged successfully, total features: {layer_A.featureCount()}')
-        
-        # Dissolve all features into a single feature
-        print(f'  -> Dissolving all features into one...')
-        try:
-            params_dissolve = {
-                'INPUT': layer_A,
-                'OUTPUT': 'memory:'
-            }
-            res_dissolve = processing.run('native:dissolve', params_dissolve)
-            dissolved = res_dissolve.get('OUTPUT')
-            if isinstance(dissolved, str):
-                layer_A = QgsVectorLayer(dissolved, 'dissolved_masks', 'ogr')
-            else:
-                layer_A = dissolved
-            
-            print(f'  -> Dissolved successfully, features in Layer A: {layer_A.featureCount()}')
-        except Exception as e:
-            msg = f"Failed to dissolve layer: {e}"
-            print(f'  -> ERROR: {msg}')
-            errors.append(msg)
-            errors.append(traceback.format_exc())
-
+        print(f'  -> Merged successfully, total features in Layer A: {layer_A.featureCount()}')
     except Exception as e:
         msg = f"Failed to merge polygonized layers: {e}"
         print(f'ERROR: {msg}')
         errors.append(msg)
         errors.append(traceback.format_exc())
+        (1)
     
     # Step 3 & 4: For each road polygon file (Layer B), clip Layer A
     print(f'\n=== STEP 3 & 4: Clipping Layer A by each road polygon (Layer B) ===')
@@ -212,6 +242,7 @@ def main(masks_dir, roads_dir, output_dir, value_field='DN'):
             
             if clipped is None:
                 print(f'  -> Clipping failed, skipping')
+                errors.append(f'Clipping failed for {road_base}')
                 continue
             
             if clipped.featureCount() == 0:
@@ -221,32 +252,54 @@ def main(masks_dir, roads_dir, output_dir, value_field='DN'):
             
             print(f'  -> Clipped successfully, features: {clipped.featureCount()}')
             
-            # Save the clipped result
-            output_filename = f"{road_base}_clipped_masks.gpkg"
-            output_path = os.path.join(output_dir, output_filename)
-            
-            # Remove existing file if it exists
-            if os.path.exists(output_path):
+            # Extract and save each feature individually (one file per feature)
+            for feat in clipped.getFeatures():
+                fid = feat.id()
+                # Get filename from the feature's filename field
+                filename_idx = clipped.fields().indexFromName('filename')
+                filename_value = feat.attribute(filename_idx) if filename_idx != -1 else 'unknown'
+                output_filename = f"{filename_value}_{road_base}_clipped.gpkg"
+                output_path = os.path.join(output_dir, output_filename)
+                
+                # Remove existing file if it exists
+                if os.path.exists(output_path):
+                    try:
+                        os.remove(output_path)
+                    except Exception as e:
+                        print(f'  -> Warning: could not remove existing file: {e}')
+                
+                print(f'  -> Extracting feature (filename: {filename_value})')
+                expr = f"$id = {fid}"
                 try:
-                    os.remove(output_path)
+                    res_ext = processing.run('native:extractbyexpression', {'INPUT': clipped, 'EXPRESSION': expr, 'OUTPUT': 'memory:'})
+                    single = res_ext.get('OUTPUT')
+                    if single is None:
+                        msg = f"Extraction returned no layer for {road_base} feature {fid}"
+                        print(f'    -> {msg}, skipping')
+                        errors.append(msg)
+                        continue
                 except Exception as e:
-                    print(f'  -> Warning: could not remove existing file: {e}')
-            
-            print(f'  -> Saving to: {output_filename}')
-            try:
-                res = processing.run('native:savefeatures', {'INPUT': clipped, 'OUTPUT': output_path})
-                if res and res.get('OUTPUT'):
-                    print(f'  -> Saved successfully: {res["OUTPUT"]}')
-                    clipped_count += 1
-                else:
-                    msg = f"Save returned no output for {road_base}"
-                    print(f'  -> {msg}')
+                    msg = f"Failed to extract feature {fid} from {road_base}: {e}"
+                    print(f'    -> {msg}')
                     errors.append(msg)
-            except Exception as e:
-                msg = f"Failed to save clipped result for {road_base}: {e}"
-                print(f'  -> {msg}')
-                errors.append(msg)
-                errors.append(traceback.format_exc())
+                    errors.append(traceback.format_exc())
+                    continue
+                
+                print(f'    -> Saving to: {output_filename}')
+                try:
+                    res = processing.run('native:savefeatures', {'INPUT': single, 'OUTPUT': output_path})
+                    if res and res.get('OUTPUT'):
+                        print(f'    -> Saved successfully: {res["OUTPUT"]}')
+                        clipped_count += 1
+                    else:
+                        msg = f"Save returned no output for {road_base} feature {fid}"
+                        print(f'    -> {msg}')
+                        errors.append(msg)
+                except Exception as e:
+                    msg = f"Failed to save feature {fid} from {road_base} to {output_path}: {e}"
+                    print(f'    -> {msg}')
+                    errors.append(msg)
+                    errors.append(traceback.format_exc())
         
         except Exception as e:
             msg = f"Unexpected error processing {road_base}: {e}"
