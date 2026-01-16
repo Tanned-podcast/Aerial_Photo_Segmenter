@@ -7,8 +7,8 @@ import processing
 import os
 
 # —— パラメータ —————————————————
-input_gpkg = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\SplitRoad_by_Link\Multifeat_AllRoadPolygon3.gpkg"
-out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\SplitRoad_by_Link\Linkwise_RoadPolygons"
+input_gpkg = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\wajima_roadpolygon_linkwise.gpkg"
+out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RoadPolygon_Linkwise\wajima"
 base_name = input_gpkg.split("\\")[-1].split(".")[0]  # レイヤ名を生成するベース
 overwrite = True
 # ————————————————————————————

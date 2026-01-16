@@ -19,12 +19,12 @@ import glob, datetime
 # ----------------------
 # === Configuration ===
 # ----------------------
-ROAD_LAYER_PATH = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\SplitRoad_by_Link\suzu_rdedg_edited.gpkg"  # line layer (A)
-masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\SplitRoad_by_Link\MaskVector_Clipped"  # list of polygon layers (one or many)
+ROAD_LAYER_PATH = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\wajima_rdedg_edited.gpkg"  # line layer (A)
+masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskVector_Clipped\Pred_wajima_fails"  # list of polygon layers (one or many)
 EPSILON = 0.000003
 EPSILON_ANGLE = 0.000001
-OUTPUT_CSV = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\SplitRoad_by_Link\Result_QGIS\output_GT_wajima.csv"
-output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\SplitRoad_by_Link\MaskBBox"
+OUTPUT_CSV = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\output_Pred_wajima_fails.csv"
+output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\Pred_wajima_fails"
 BUFFER_SEGMENTS = 8        # buffer resolution
 # ----------------------
 
@@ -153,11 +153,12 @@ for mask_file in mask_files:
                 continue
 
 
-            angle_rad = dgeom.interpolateAngle(EPSILON_ANGLE)  # ラジアン
+            angle_rad = dgeom.interpolateAngle(dgeom.length()/2)  # ラジアン
+            angle_degree = math.degrees(angle_rad)  # 度に変換
+            angle_degree = angle_degree % 180  # 0-180度に正規化
             feat_angles.append(angle_rad)
 
         theta = sum(feat_angles) / len(feat_angles) if feat_angles else 0.0
-        theta = math.degrees(theta)  # degreeに変換
 
     # Define E such that rotating polygon CCW by E aligns road horizontally:
     # E = -theta (radians). We'll store angle in degrees (angle_deg).

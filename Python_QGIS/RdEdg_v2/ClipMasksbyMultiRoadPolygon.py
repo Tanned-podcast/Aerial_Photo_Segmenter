@@ -25,9 +25,9 @@ from qgis.PyQt.QtCore import QVariant
 import processing
 
 
-masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\SplitRoad_by_Link\MaskTIFFs"
-roads_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\SplitRoad_by_Link\Linkwise_RoadPolygons"
-output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20251209Data\SplitRoad_by_Link\MaskVector_Clipped"
+masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskTIFFs\Pred_wajima"
+roads_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RoadPolygon_Linkwise\wajima"
+output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskVector_Clipped\Pred_wajima"
 
 
 fields = QgsFields()
