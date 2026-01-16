@@ -12,7 +12,7 @@ PyQGIS script that:
 """
 
 import os
-import math, datetime
+import math, datetime, glob
 
 from qgis.core import (
     QgsVectorLayer, QgsProject, QgsFeature, QgsGeometry, QgsPointXY,
@@ -20,6 +20,7 @@ from qgis.core import (
     QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsSpatialIndex,
     QgsFeatureRequest, QgsRectangle
 )
+import processing
 from PyQt5.QtCore import QVariant
 
 errors = []  # Collect error logs
@@ -127,6 +128,76 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_lin
 
     for file_path in layer_files:
         base_name = os.path.splitext(os.path.basename(file_path))[0]
+        print(f"Processing mask file: {base_name}")
+
+        ### Deciding which layerB and layerC to use ###
+        current_geom_dictB = geom_dict_B
+        current_indexB = indexB
+        current_geom_dictC = geom_dict_C
+        current_indexC = indexC
+        
+        # Check if mask_file name contains "Node_{ID}""
+        if 'Node' in base_name:
+            import re
+            node_match = re.search(r'Node(\d+)', base_name)
+            if node_match:
+                node_id = node_match.group(1)
+                print(f'    -> Found Node ID in file name: {node_id}')
+                # Search for files containing Node{node_id} in the NODE_ROAD_DIR
+                node_road_files = glob.glob(os.path.join(NODE_ROAD_DIR, f"*Node{node_id}*"))
+                if node_road_files:
+                    node_road_file = node_road_files[0]  # Use the first matching file
+                    node_polygon_layer = QgsVectorLayer(node_road_file, f'road_node_{node_id}', 'ogr')
+                    if node_polygon_layer.isValid():
+                        # Convert polygon layer to line layer if necessary
+                        if node_polygon_layer.geometryType() == QgsWkbTypes.PolygonGeometry:
+                            params_poly2line = {
+                                'INPUT': node_polygon_layer,
+                                'OUTPUT': 'memory:'
+                            }
+                            res_poly2line = processing.run('native:polygonstolines', params_poly2line)
+                            node_line_layer = res_poly2line['OUTPUT']
+
+                            # Build spatial indices for layerB and layerC (in their native CRS)
+                            node_indexB = QgsSpatialIndex()
+                            node_geom_dict_B = {}
+                            for f in node_line_layer.getFeatures():
+                                node_geom = f.geometry()
+                                if node_geom:
+                                    node_indexB.addFeature(f)
+                                    # copy geometry safely (QgsGeometry.clone() may not be available)
+                                    node_geom_dict_B[f.id()] = QgsGeometry.fromWkt(node_geom.asWkt())
+
+                            node_indexC = QgsSpatialIndex()
+                            node_geom_dict_C = {}
+                            for f in node_polygon_layer.getFeatures():
+                                node_geom = f.geometry()
+                                if node_geom:
+                                    node_indexC.addFeature(f)
+                                    node_geom_dict_C[f.id()] = QgsGeometry.fromWkt(node_geom.asWkt())
+
+                                    current_geom_dictB = node_geom_dict_B
+                                    current_indexB = node_indexB
+                                    current_geom_dictC = node_geom_dict_C
+                                    current_indexC = node_indexC
+
+                            print(f'    -> Using Node-specific road layer (converted from polygon): {node_road_file}')
+                        else:
+                            msg = f'Warning: node road layer {node_road_file} is not polygon, using default road layer'
+                            errors.append(msg)
+                            print(msg)
+                    else:
+                        msg = f'Warning: failed to open node road layer {node_road_file}, using default road layer'
+                        errors.append(msg)
+                        print(msg)
+                else:
+                    msg = f'Warning: no node road file matching Node{node_id} found in {NODE_ROAD_DIR}, using default road layer'
+                    errors.append(msg)
+                    print(msg)
+
+        ##### Deciding which layerB and layerC to use #####
+
+
         print(f"Processing LayerA: {file_path} ...")
         layerA = QgsVectorLayer(file_path, base_name, "ogr")
         if not layerA.isValid():
@@ -164,10 +235,10 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_lin
             continue
 
         bbox = cen_inC.boundingBox()
-        candidate_ids = indexC.intersects(bbox)
+        candidate_ids = current_indexC.intersects(bbox)
         contained_flag = False
         for cid in candidate_ids:
-            poly_geom = geom_dict_C.get(cid)
+            poly_geom = current_geom_dictC.get(cid)
             if poly_geom and poly_geom.contains(cen_inC):
                 contained_flag = True
                 continue
@@ -317,14 +388,14 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_lin
             print(msg)
             continue
         bboxB = D_in_B.boundingBox()
-        candidate_ids_B = indexB.intersects(bboxB)
+        candidate_ids_B = current_indexB.intersects(bboxB)
 
         intersection_points_metric = []
         # Use D_in_B (line D reprojected into LayerB CRS) to intersect with geomB (which is in LayerB CRS).
         # Then transform resulting intersection points back to metric CRS for consistent distance calculations.
         D_for_intersect = QgsGeometry.fromWkt(D_in_B.asWkt())
         for bid in candidate_ids_B:
-            geomB = geom_dict_B.get(bid)
+            geomB = current_geom_dictB.get(bid)
             if geomB is None:
                 continue
             try:
@@ -444,10 +515,11 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_lin
             print('Failed to write error log file:', e)
 
 
-dir_A = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\Pred_wajima"
-path_layerB = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\wajima_rdedg_edited_dissolved.gpkg"
-path_layerC = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\wajima_rdedg_edited_dissolved_polygon.gpkg"
-out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Passability_WidthLine\Pred_wajima"
+dir_A = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\Pred_suzu_fails"
+path_layerB = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_rdedg_edited_dissolved.gpkg"
+path_layerC = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_rdedg_edited_dissolved_polygon.gpkg"
+NODE_ROAD_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskVector_Clipped\Pred_suzu_fails\Nodes"
+out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Passability_WidthLine\Pred_suzu_fails"
 long_line_length = 100  
 
 process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_line_length)
