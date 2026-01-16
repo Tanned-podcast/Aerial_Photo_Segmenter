@@ -17,14 +17,14 @@ import math, os, csv
 import glob, datetime
 
 # ----------------------
-# === Configuration ===
+# === Configuration ===g
 # ----------------------
 ROAD_LAYER_PATH = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\wajima_rdedg_edited.gpkg"  # line layer (A)
-masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskVector_Clipped\Pred_suzu_fails"  # list of polygon layers (one or many)
+masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskVector_Clipped\GT_wajima"  # list of polygon layers (one or many)
 EPSILON = 0.000003
 EPSILON_ANGLE = 0.000001
-OUTPUT_CSV = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\output_Pred_suzu_fails.csv"
-output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\Pred_suzu_fails"
+OUTPUT_CSV = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\output_GT_wajima.csv"
+output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\GT_wajima"
 BUFFER_SEGMENTS = 8        # buffer resolution
 # ----------------------
 
@@ -144,22 +144,40 @@ for mask_file in mask_files:
         print(msg)
         continue
     else:
-        for dfeat in dfeats:
-            dgeom = dfeat.geometry()
-            if dgeom.isEmpty():
-                msg = f"dgeom is empty for {mask_file}, id {dfeat.id()}, skipping"
-                errors.append(msg)
-                print(msg)
-                continue
+        dfeat = dfeats[0]
+        dgeom = dfeat.geometry()
+        if dgeom.isEmpty():
+            msg = f"dgeom is empty for {mask_file}, id {dfeat.id()}, skipping"
+            errors.append(msg)
+            print(msg)
+            continue
 
-            # length = EPSILON_ANGLE
-            length = dgeom.length()/2
-            angle_rad = dgeom.interpolateAngle(length)  # ラジアン
-            angle_degree = math.degrees(angle_rad)  # 度に変換
-            angle_degree = angle_degree % 180  # 0-180度に正規化
-            feat_angles.append(angle_rad)
+        # length = EPSILON_ANGLE
+        length = dgeom.length()/2
+        angle_rad = dgeom.interpolateAngle(length)  # ラジアン
+        angle_degree = math.degrees(angle_rad)  # 度に変換
+        theta = angle_degree % 180  # 0-180度に正規化
 
-        theta = sum(feat_angles) / len(feat_angles) if feat_angles else 0.0
+        ### feature averaging is disabled for now: very unstable ###
+        
+        # theta = sum(feat_angles) / len(feat_angles) if feat_angles else 0.0
+
+        # for dfeat in dfeats:
+        #     dgeom = dfeat.geometry()
+        #     if dgeom.isEmpty():
+        #         msg = f"dgeom is empty for {mask_file}, id {dfeat.id()}, skipping"
+        #         errors.append(msg)
+        #         print(msg)
+        #         continue
+
+        #     # length = EPSILON_ANGLE
+        #     length = dgeom.length()/2
+        #     angle_rad = dgeom.interpolateAngle(length)  # ラジアン
+        #     angle_degree = math.degrees(angle_rad)  # 度に変換
+        #     angle_degree = angle_degree % 180  # 0-180度に正規化
+        #     feat_angles.append(angle_rad)
+
+        # theta = sum(feat_angles) / len(feat_angles) if feat_angles else 0.0
 
     # Define E such that rotating polygon CCW by E aligns road horizontally:
     # E = -theta (radians). We'll store angle in degrees (angle_deg).

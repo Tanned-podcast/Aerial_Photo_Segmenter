@@ -7,9 +7,9 @@ import processing
 import os
 
 # —— パラメータ —————————————————
-input_gpkg = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_fails\suzufail_roadpolygon_linkwise.gpkg"
-out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RoadPolygon_Linkwise\suzu_fails"
-intersection_point_layer_path = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_road_nodes_edited.gpkg"  # 交差点のポイントレイヤ
+input_gpkg = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\wajima_roadpolygon_linkwise.gpkg"
+out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RoadPolygon_Linkwise\wajima"
+intersection_point_layer_path = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\wajima_road_nodes_edited.gpkg"  # 交差点のポイントレイヤ
 base_name = input_gpkg.split("\\")[-1].split(".")[0]  # レイヤ名を生成するベース
 overwrite = True
 # ————————————————————————————

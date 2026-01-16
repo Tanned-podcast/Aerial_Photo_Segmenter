@@ -515,11 +515,11 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_lin
             print('Failed to write error log file:', e)
 
 
-dir_A = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\Pred_suzu_fails"
-path_layerB = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_rdedg_edited_dissolved.gpkg"
-path_layerC = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_rdedg_edited_dissolved_polygon.gpkg"
-NODE_ROAD_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskVector_Clipped\Pred_suzu_fails\Nodes"
-out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Passability_WidthLine\Pred_suzu_fails"
+dir_A = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\GT_wajima"
+path_layerB = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\wajima_rdedg_edited_dissolved.gpkg"
+path_layerC = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\wajima_rdedg_edited_dissolved_polygon.gpkg"
+NODE_ROAD_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RoadPolygon_Linkwise\wajima"
+out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Passability_WidthLine\GT_wajima"
 long_line_length = 100  
 
 process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_line_length)
