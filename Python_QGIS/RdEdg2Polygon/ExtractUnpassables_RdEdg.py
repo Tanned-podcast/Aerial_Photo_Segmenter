@@ -156,13 +156,13 @@ def merge_filtered_polygons(input_dir, output_gpkg, out_dir, output_layer_name, 
 
 
 threshold = 4.0  # threshold for remaining_road_width_m
-input_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\GT_wajima"
+input_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\Pred_wajima"
 
-out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\GT_wajima"
+out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\Pred_wajima"
 
-output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\GT_wajima\GT_wajima_overall.gpkg"
-# output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\GT_wajima\GT_wajima_filtered_passables_thres{int(threshold)}m.gpkg"
-# output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\GT_wajima\GT_wajima_filtered_unpassables_thres{int(threshold)}m.gpkg"
+output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\Pred_wajima\Pred_wajima_overall.gpkg"
+# output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\Pred_wajima\Pred_wajima_filtered_passables_thres{int(threshold)}m.gpkg"
+# output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\Pred_wajima\Pred_wajima_filtered_unpassables_thres{int(threshold)}m.gpkg"
 
 output_layer_name='overall'
 # output_layer_name='filtered_passables'

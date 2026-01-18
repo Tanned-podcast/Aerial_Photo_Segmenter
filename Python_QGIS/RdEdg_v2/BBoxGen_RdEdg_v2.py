@@ -19,12 +19,12 @@ import glob, datetime
 # ----------------------
 # === Configuration ===g
 # ----------------------
-ROAD_LAYER_PATH = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\wajima_rdedg_edited.gpkg"  # line layer (A)
-masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskVector_Clipped\GT_wajima"  # list of polygon layers (one or many)
+ROAD_LAYER_PATH = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RoadPolygon_Linkwise\wajima\wajima_roadpolygon_linkwise_Node196.gpkg"  # line layer (A)
+masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Fails0117\MaskVector_Clipped\Pred_wajima"  # list of polygon layers (one or many)
 EPSILON = 0.000003
 EPSILON_ANGLE = 0.000001
-OUTPUT_CSV = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\output_GT_wajima.csv"
-output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\GT_wajima"
+OUTPUT_CSV = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\output_Pred_wajima.csv"
+output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\Pred_wajima"
 BUFFER_SEGMENTS = 8        # buffer resolution
 # ----------------------
 
@@ -36,6 +36,12 @@ road_layer = QgsVectorLayer(ROAD_LAYER_PATH, 'road', 'ogr')
 if not road_layer.isValid():
     raise RuntimeError('Failed to open road layer: {}'.format(ROAD_LAYER_PATH))
 crs = road_layer.crs()
+
+# res = processing.run("native:polygonstolines", {
+#     'INPUT': r_layer,
+#     'OUTPUT': 'memory:'
+# })
+# road_layer = res['OUTPUT']
 
 # Distance calculator for accurate meter measurements using GRS80 ellipsoid
 dist_calc = QgsDistanceArea()
@@ -159,7 +165,7 @@ for mask_file in mask_files:
         theta = angle_degree % 180  # 0-180度に正規化
 
         ### feature averaging is disabled for now: very unstable ###
-        
+
         # theta = sum(feat_angles) / len(feat_angles) if feat_angles else 0.0
 
         # for dfeat in dfeats:
