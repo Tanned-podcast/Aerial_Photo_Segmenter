@@ -333,74 +333,79 @@ def visualize_xai_results(
     vmin_common = min(cam_norm.min(), prob_norm.min(), evidence_map.min())
     vmax_common = max(cam_norm.max(), prob_norm.max(), evidence_map.max())
     
+
+    fontsize = 24
+
     # 1. 元画像
     axes[0].imshow(original_img)
-    axes[0].set_title('元画像', fontsize=12)
+    axes[0].set_title('元画像', fontsize=fontsize)
     axes[0].axis('off')
-    
-    # 2. 瓦礫クラス CAM（正規化済）
-    im2 = axes[1].imshow(cam_norm, cmap='jet', vmin=0, vmax=1)
-    axes[1].set_title(f'{xai_method_name} CAM (正規化)', fontsize=12)
+
+    # 2. 予測マスク
+    axes[1].imshow(pred_mask, cmap='gray', vmin=0, vmax=255)
+    axes[1].set_title('予測マスク', fontsize=fontsize)
     axes[1].axis('off')
-    plt.colorbar(im2, ax=axes[1], fraction=0.046, pad=0.04)
     
-    # 3. 瓦礫クラス確率マップ（正規化済）
-    im3 = axes[2].imshow(prob_norm, cmap='jet', vmin=0, vmax=1)
-    axes[2].set_title('確率マップ (正規化)', fontsize=12)
+    # 3. Ground Truthマスク
+    if gt_mask is not None:
+        axes[2].imshow(gt_mask, cmap='gray', vmin=0, vmax=255)
+        axes[2].set_title('Ground Truthマスク', fontsize=fontsize)
+    else:
+        axes[2].text(0.5, 0.5, 'GTマスク\n未取得', 
+                    ha='center', va='center', fontsize=fontsize, 
+                    transform=axes[8].transAxes)
+        axes[2].set_title('Ground Truthマスク', fontsize=fontsize)
     axes[2].axis('off')
-    plt.colorbar(im3, ax=axes[2], fraction=0.046, pad=0.04)
     
     # 4. 元画像 + CAM（αブレンド）
     # show_cam_on_imageのimage_weightは元画像の重み（CAMの重みは1-image_weight）
     cam_overlay = show_cam_on_image(original_img, cam_norm, use_rgb=True, image_weight=1.0-alpha)
     axes[3].imshow(cam_overlay)
-    axes[3].set_title(f'元画像 + {xai_method_name} CAM', fontsize=12)
+    axes[3].set_title(f'元画像 & GradCAM++', fontsize=fontsize)
     axes[3].axis('off')
     
     # 5. 元画像 + 確率マップ（αブレンド）
     prob_overlay = show_cam_on_image(original_img, prob_norm, use_rgb=True, image_weight=1.0-alpha)
     axes[4].imshow(prob_overlay)
-    axes[4].set_title('元画像 + 確率マップ', fontsize=12)
+    axes[4].set_title('元画像 +瓦礫クラス確率マップ', fontsize=fontsize)
     axes[4].axis('off')
     
-    # 6. CAM × 確率の積マップ（evidence map）
-    im6 = axes[5].imshow(evidence_map, cmap='jet', vmin=vmin_common, vmax=vmax_common)
-    axes[5].set_title('Evidence Map (CAM × 確率)', fontsize=12)
-    axes[5].axis('off')
-    plt.colorbar(im6, ax=axes[5], fraction=0.046, pad=0.04)
-    
-    # 7. 「見ている × 信じている」4分類ヒートマップ
+    # 6. 「見ている × 信じている」4分類ヒートマップ
     colors = ['red', 'orange', 'blue', 'gray']
     cmap_custom = ListedColormap(colors)
-    im7 = axes[6].imshow(heatmap_4class, cmap=cmap_custom, vmin=0, vmax=3)
-    axes[6].set_title('4分類ヒートマップ', fontsize=12)
+    im7 = axes[5].imshow(heatmap_4class, cmap=cmap_custom, vmin=0, vmax=3)
+    axes[5].set_title('4分類ヒートマップ', fontsize=fontsize)
+    axes[5].axis('off')
+
+    # 7. 瓦礫クラス CAM（正規化済）
+    im2 = axes[6].imshow(cam_norm, cmap='jet', vmin=0, vmax=1)
+    axes[6].set_title(f'GradCAM++', fontsize=fontsize)
     axes[6].axis('off')
+    plt.colorbar(im2, ax=axes[1], fraction=0.046, pad=0.04)
+    
+    # 8. 瓦礫クラス確率マップ（正規化済）
+    im3 = axes[7].imshow(prob_norm, cmap='jet', vmin=0, vmax=1)
+    axes[7].set_title('瓦礫クラス確率マップ', fontsize=fontsize)
+    axes[7].axis('off')
+    plt.colorbar(im3, ax=axes[2], fraction=0.046, pad=0.04)
+
+    # 9. CAM × 確率の積マップ（evidence map）
+    im6 = axes[8].imshow(evidence_map, cmap='jet', vmin=vmin_common, vmax=vmax_common)
+    axes[8].set_title('GradCAM++ × 瓦礫クラス確率マップ', fontsize=fontsize)
+    axes[8].axis('off')
+    plt.colorbar(im6, ax=axes[5], fraction=0.046, pad=0.04)
     
     # 凡例
     from matplotlib.patches import Patch
     legend_elements = [
-        Patch(facecolor='red', label='見ている × 信じている'),
-        Patch(facecolor='orange', label='見ていない × 信じている'),
-        Patch(facecolor='blue', label='見ている × 信じていない'),
-        Patch(facecolor='gray', label='見ていない × 信じていない')
+        Patch(facecolor='red', label='CAMの値大 × クラス確率大'),
+        Patch(facecolor='orange', label='CAMの値小 × クラス確率大'),
+        Patch(facecolor='blue', label='CAMの値大 × クラス確率小'),
+        Patch(facecolor='gray', label='CAMの値小 × クラス確率小')
     ]
-    axes[6].legend(handles=legend_elements, loc='upper right', fontsize=8)
+    axes[5].legend(handles=legend_elements, loc='upper right', fontsize=16)
     
-    # 8. 予測マスク
-    axes[7].imshow(pred_mask, cmap='gray', vmin=0, vmax=255)
-    axes[7].set_title('予測マスク', fontsize=12)
-    axes[7].axis('off')
-    
-    # 9. Ground Truthマスク
-    if gt_mask is not None:
-        axes[8].imshow(gt_mask, cmap='gray', vmin=0, vmax=255)
-        axes[8].set_title('Ground Truthマスク', fontsize=12)
-    else:
-        axes[8].text(0.5, 0.5, 'GTマスク\n未取得', 
-                    ha='center', va='center', fontsize=12, 
-                    transform=axes[8].transAxes)
-        axes[8].set_title('Ground Truthマスク', fontsize=12)
-    axes[8].axis('off')
+
     
     plt.tight_layout()
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
