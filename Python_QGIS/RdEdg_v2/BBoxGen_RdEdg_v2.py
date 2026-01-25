@@ -19,12 +19,12 @@ import glob, datetime
 # ----------------------
 # === Configuration ===g
 # ----------------------
-ROAD_LAYER_PATH = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RoadPolygon_Linkwise\wajima\wajima_roadpolygon_linkwise_Node196.gpkg"  # line layer (A)
-masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Fails0117\MaskVector_Clipped\Pred_wajima"  # list of polygon layers (one or many)
+ROAD_LAYER_PATH = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_rdedg_edited.gpkg"  # line layer (A)
+masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Fails0116\MaskVector_Clipped\Pred_suzu"  # list of polygon layers (one or many)
 EPSILON = 0.000003
 EPSILON_ANGLE = 0.000001
-OUTPUT_CSV = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\output_Pred_wajima.csv"
-output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\Pred_wajima"
+OUTPUT_CSV = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Fails0116\Result_QGIS\output_Pred_wajima.csv"
+output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Fails0116\MaskBBox\Pred_wajima"
 BUFFER_SEGMENTS = 8        # buffer resolution
 # ----------------------
 
