@@ -335,6 +335,7 @@ def visualize_xai_results(
     
 
     fontsize = 24
+    labelsize = 18
 
     # 1. 元画像
     axes[0].imshow(original_img)
@@ -361,7 +362,7 @@ def visualize_xai_results(
     # show_cam_on_imageのimage_weightは元画像の重み（CAMの重みは1-image_weight）
     cam_overlay = show_cam_on_image(original_img, cam_norm, use_rgb=True, image_weight=1.0-alpha)
     axes[3].imshow(cam_overlay)
-    axes[3].set_title(f'元画像 & GradCAM++', fontsize=fontsize)
+    axes[3].set_title(f'元画像 & Grad-CAM++', fontsize=fontsize)
     axes[3].axis('off')
     
     # 5. 元画像 + 確率マップ（αブレンド）
@@ -379,21 +380,21 @@ def visualize_xai_results(
 
     # 7. 瓦礫クラス CAM（正規化済）
     im2 = axes[6].imshow(cam_norm, cmap='jet', vmin=0, vmax=1)
-    axes[6].set_title(f'GradCAM++', fontsize=fontsize)
+    axes[6].set_title(f'Grad-CAM++', fontsize=fontsize)
     axes[6].axis('off')
-    plt.colorbar(im2, ax=axes[1], fraction=0.046, pad=0.04)
+    plt.colorbar(im2, ax=axes[6], fraction=0.046, pad=0.04).ax.tick_params(labelsize=labelsize)
     
     # 8. 瓦礫クラス確率マップ（正規化済）
     im3 = axes[7].imshow(prob_norm, cmap='jet', vmin=0, vmax=1)
     axes[7].set_title('瓦礫クラス確率マップ', fontsize=fontsize)
     axes[7].axis('off')
-    plt.colorbar(im3, ax=axes[2], fraction=0.046, pad=0.04)
+    plt.colorbar(im3, ax=axes[7], fraction=0.046, pad=0.04).ax.tick_params(labelsize=labelsize)
 
-    # 9. CAM × 確率の積マップ（evidence map）
-    im6 = axes[8].imshow(evidence_map, cmap='jet', vmin=vmin_common, vmax=vmax_common)
-    axes[8].set_title('GradCAM++ × 瓦礫クラス確率マップ', fontsize=fontsize)
-    axes[8].axis('off')
-    plt.colorbar(im6, ax=axes[5], fraction=0.046, pad=0.04)
+    # # 9. CAM × 確率の積マップ（evidence map）
+    # im6 = axes[8].imshow(evidence_map, cmap='jet', vmin=vmin_common, vmax=vmax_common)
+    # axes[8].set_title('GradCAM++ × 瓦礫クラス確率マップ', fontsize=fontsize)
+    # axes[8].axis('off')
+    # plt.colorbar(im6, ax=axes[8], fraction=0.046, pad=0.04).ax.tick_params(labelsize=14)
     
     # 凡例
     from matplotlib.patches import Patch
@@ -403,8 +404,13 @@ def visualize_xai_results(
         Patch(facecolor='blue', label='CAMの値大 × クラス確率小'),
         Patch(facecolor='gray', label='CAMの値小 × クラス確率小')
     ]
-    axes[5].legend(handles=legend_elements, loc='upper right', fontsize=16)
-    
+    axes[8].legend(
+        handles=legend_elements, 
+        loc='upper center', 
+        fontsize=fontsize,
+        title="4分類ヒートマップの凡例",
+        title_fontsize=fontsize)
+    axes[8].axis('off')
 
     
     plt.tight_layout()
