@@ -334,8 +334,9 @@ def visualize_xai_results(
     vmax_common = max(cam_norm.max(), prob_norm.max(), evidence_map.max())
     
 
-    fontsize = 24
-    labelsize = 18
+    fontsize = 36
+    labelsize = 24
+    legendsize = 24
 
     # 1. 元画像
     axes[0].imshow(original_img)
@@ -362,13 +363,13 @@ def visualize_xai_results(
     # show_cam_on_imageのimage_weightは元画像の重み（CAMの重みは1-image_weight）
     cam_overlay = show_cam_on_image(original_img, cam_norm, use_rgb=True, image_weight=1.0-alpha)
     axes[3].imshow(cam_overlay)
-    axes[3].set_title(f'元画像 & Grad-CAM++', fontsize=fontsize)
+    axes[3].set_title(f'元画像 &\n Grad-CAM++', fontsize=fontsize)
     axes[3].axis('off')
     
     # 5. 元画像 + 確率マップ（αブレンド）
     prob_overlay = show_cam_on_image(original_img, prob_norm, use_rgb=True, image_weight=1.0-alpha)
     axes[4].imshow(prob_overlay)
-    axes[4].set_title('元画像 +瓦礫クラス確率マップ', fontsize=fontsize)
+    axes[4].set_title('元画像 &\n瓦礫クラス確率マップ', fontsize=fontsize)
     axes[4].axis('off')
     
     # 6. 「見ている × 信じている」4分類ヒートマップ
@@ -407,9 +408,9 @@ def visualize_xai_results(
     axes[8].legend(
         handles=legend_elements, 
         loc='upper center', 
-        fontsize=fontsize,
+        fontsize=legendsize,
         title="4分類ヒートマップの凡例",
-        title_fontsize=fontsize)
+        title_fontsize=legendsize)
     axes[8].axis('off')
 
     
