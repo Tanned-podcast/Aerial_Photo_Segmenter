@@ -13,11 +13,13 @@ import os
 import torch
 import torch.nn.functional as F
 import numpy as np
+from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
+import pandas as pd
 from PIL import Image
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, List
 import warnings
 import seaborn as sns
 import japanize_matplotlib
@@ -419,6 +421,165 @@ def visualize_xai_results(
     plt.close()
 
 
+def compute_pixel_level_confusion(pred_mask: np.ndarray, gt_mask: np.ndarray) -> Dict[str, int]:
+    """
+    予測マスクとGTマスクからピクセル単位の混同行列を計算する
+    
+    Args:
+        pred_mask: 予測マスク (H, W) - 画素値は0または255
+        gt_mask: Ground Truthマスク (H, W) - 画素値は0または255
+    
+    Returns:
+        混同行列の要素（TN, FP, FN, TP）を含む辞書
+    """
+    # 0/1形式に変換（0=背景、1=瓦礫）
+    pred_binary = (pred_mask > 127).astype(int)
+    gt_binary = (gt_mask > 127).astype(int)
+    
+    # フラット化
+    pred_flat = pred_binary.flatten()
+    gt_flat = gt_binary.flatten()
+    
+    # 混同行列を計算（sklearnを使用）
+    cm = confusion_matrix(gt_flat, pred_flat, labels=[0, 1])
+    
+    # TN, FP, FN, TPを抽出
+    # cm[0,0] = TN (背景を背景と予測)
+    # cm[0,1] = FP (背景を瓦礫と予測)
+    # cm[1,0] = FN (瓦礫を背景と予測)
+    # cm[1,1] = TP (瓦礫を瓦礫と予測)
+    tn = int(cm[0, 0])
+    fp = int(cm[0, 1])
+    fn = int(cm[1, 0])
+    tp = int(cm[1, 1])
+    
+    return {
+        'TN': tn,
+        'FP': fp,
+        'FN': fn,
+        'TP': tp,
+        'total_pixels': int(len(pred_flat))
+    }
+
+
+def compute_metrics_from_confusion(tn: int, fp: int, fn: int, tp: int) -> Dict[str, float]:
+    """
+    混同行列から各種メトリクスを計算する
+    
+    Args:
+        tn: True Negative
+        fp: False Positive
+        fn: False Negative
+        tp: True Positive
+    
+    Returns:
+        メトリクスの辞書
+    """
+    eps = 1e-8
+    
+    # 全体の精度
+    accuracy = (tp + tn) / (tp + tn + fp + fn + eps)
+    
+    # 瓦礫クラス（クラス1）のメトリクス
+    precision_debris = tp / (tp + fp + eps)
+    recall_debris = tp / (tp + fn + eps)
+    f1_debris = 2 * precision_debris * recall_debris / (precision_debris + recall_debris + eps)
+    
+    # 背景クラス（クラス0）のメトリクス
+    precision_background = tn / (tn + fn + eps)
+    recall_background = tn / (tn + fp + eps)
+    f1_background = 2 * precision_background * recall_background / (precision_background + recall_background + eps)
+    
+    # IoU（Intersection over Union）
+    iou_debris = tp / (tp + fp + fn + eps)
+    iou_background = tn / (tn + fp + fn + eps)
+    mean_iou = (iou_debris + iou_background) / 2.0
+    
+    return {
+        'accuracy': accuracy,
+        'precision_debris': precision_debris,
+        'recall_debris': recall_debris,
+        'f1_debris': f1_debris,
+        'precision_background': precision_background,
+        'recall_background': recall_background,
+        'f1_background': f1_background,
+        'iou_debris': iou_debris,
+        'iou_background': iou_background,
+        'mean_iou': mean_iou
+    }
+
+
+def save_confusion_matrix_csv(
+    overall_cm: np.ndarray,
+    per_image_results: List[Dict],
+    output_path: str
+):
+    """
+    混同行列と評価結果をCSVファイルに保存する
+    
+    Args:
+        overall_cm: データセット全体の混同行列 (2x2)
+        per_image_results: 各画像の評価結果のリスト
+        output_path: 出力CSVファイルのパス
+    """
+    # データセット全体のメトリクスを計算
+    tn = int(overall_cm[0, 0])
+    fp = int(overall_cm[0, 1])
+    fn = int(overall_cm[1, 0])
+    tp = int(overall_cm[1, 1])
+    
+    overall_metrics = compute_metrics_from_confusion(tn, fp, fn, tp)
+    
+    # データセット全体の結果をDataFrameにまとめる
+    overall_data = {
+        'image_name': ['DATASET_OVERALL'],
+        'TN': [tn],
+        'FP': [fp],
+        'FN': [fn],
+        'TP': [tp],
+        'total_pixels': [tn + fp + fn + tp],
+        **{k: [v] for k, v in overall_metrics.items()}
+    }
+    
+    # 各画像の結果をDataFrameにまとめる
+    if per_image_results:
+        per_image_df = pd.DataFrame(per_image_results)
+        
+        # 全体の結果と結合
+        overall_df = pd.DataFrame(overall_data)
+        result_df = pd.concat([overall_df, per_image_df], ignore_index=True)
+    else:
+        result_df = pd.DataFrame(overall_data)
+    
+    # CSVに保存
+    result_df.to_csv(output_path, index=False, encoding='utf-8-sig')
+    print(f"\n推論結果CSVを保存しました: {output_path}")
+    
+    # 混同行列を別のCSVにも保存
+    cm_df = pd.DataFrame(
+        overall_cm,
+        index=['GT_背景', 'GT_瓦礫'],
+        columns=['Pred_背景', 'Pred_瓦礫']
+    )
+    cm_output_path = output_path.replace('.csv', '_confusion_matrix.csv')
+    cm_df.to_csv(cm_output_path, encoding='utf-8-sig')
+    print(f"混同行列CSVを保存しました: {cm_output_path}")
+    
+    # コンソールに結果を表示
+    print("\n" + "="*80)
+    print("データセット全体の評価結果")
+    print("="*80)
+    print(f"混同行列:")
+    print(cm_df)
+    print(f"\n全体精度 (Accuracy): {overall_metrics['accuracy']:.4f}")
+    print(f"瓦礫クラス - 精度 (Precision): {overall_metrics['precision_debris']:.4f}")
+    print(f"瓦礫クラス - 再現率 (Recall): {overall_metrics['recall_debris']:.4f}")
+    print(f"瓦礫クラス - F1スコア: {overall_metrics['f1_debris']:.4f}")
+    print(f"瓦礫クラス - IoU: {overall_metrics['iou_debris']:.4f}")
+    print(f"平均IoU (mIoU): {overall_metrics['mean_iou']:.4f}")
+    print("="*80)
+
+
 def process_single_image(
     model: torch.nn.Module,
     cam_method,
@@ -431,7 +592,7 @@ def process_single_image(
     debris_class_id: int = 1,
     device: torch.device = None,
     alpha: float = 0.4
-):
+) -> Optional[Dict]:
     """
     単一画像に対してXAI可視化を実行する
     
@@ -522,8 +683,28 @@ def process_single_image(
         
         print(f"✓ {Path(image_path).name} -> {xai_method_name}")
         
+        # GTマスクがある場合、評価結果を返す
+        if gt_mask is not None:
+            confusion_result = compute_pixel_level_confusion(pred_mask, gt_mask)
+            metrics = compute_metrics_from_confusion(
+                confusion_result['TN'],
+                confusion_result['FP'],
+                confusion_result['FN'],
+                confusion_result['TP']
+            )
+            
+            result = {
+                'image_name': image_name,
+                **confusion_result,
+                **metrics
+            }
+            return result
+        else:
+            return None
+        
     except Exception as e:
         print(f"✗ エラー ({Path(image_path).name}, {xai_method_name}): {e}")
+        return None
 
 
 def main(
@@ -614,9 +795,13 @@ def main(
             # use_cuda=(device.type == 'cuda')
         )
         
+        # 評価結果を保存するリスト
+        per_image_results = []
+        overall_cm = np.zeros((2, 2), dtype=np.int64)
+        
         # 各画像を処理
         for img_path in test_images:
-            process_single_image(
+            result = process_single_image(
                 model=model,
                 cam_method=cam_method,
                 image_path=str(img_path),
@@ -629,6 +814,20 @@ def main(
                 device=device,
                 alpha=alpha
             )
+            
+            # 結果がある場合、集計に追加
+            if result is not None:
+                per_image_results.append(result)
+                # 混同行列に加算
+                overall_cm[0, 0] += result['TN']
+                overall_cm[0, 1] += result['FP']
+                overall_cm[1, 0] += result['FN']
+                overall_cm[1, 1] += result['TP']
+        
+        # GTマスクがある場合、CSVに結果を保存
+        if gt_mask_dir is not None and len(per_image_results) > 0:
+            csv_output_path = output_root_dir / f"evaluation_results_{method_name}.csv"
+            save_confusion_matrix_csv(overall_cm, per_image_results, str(csv_output_path))
     
     print(f"\n{'='*60}")
     print("処理完了!")
@@ -638,10 +837,10 @@ def main(
 
 if __name__ == "__main__":
     # パラメータ設定（必要に応じて変更）
-    MODEL_WEIGHT_PATH = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Sandbox\SegCode_Test\Weights\20260103_1648\20260103_1648_epoch030.pth"
-    TEST_IMAGE_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Sandbox\XAI_test\img"
-    GT_MASK_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Sandbox\XAI_test\mask"  # Ground Truthマスクディレクトリ
-    OUTPUT_ROOT_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Sandbox\XAI_test\Result_XAI"
+    MODEL_WEIGHT_PATH = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Weights\20260107_1428_epoch070.pth"
+    TEST_IMAGE_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Test\img"
+    GT_MASK_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Test\mask"  # Ground Truthマスクディレクトリ
+    OUTPUT_ROOT_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_XAI"
     DEBRIS_CLASS_ID = 1
     CONFIDENCE_THRESHOLD = 0.5
     ALPHA = 0.4
