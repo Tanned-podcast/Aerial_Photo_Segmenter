@@ -1,7 +1,8 @@
+# 7番目に実行，通行不可能な道路リンクを抽出
 # PyQGIS script: filter and merge polygons where remaining_road_width_m > 4
 # Run in QGIS Python Console or a PyQGIS-enabled script
 
-import os, datetime
+import os
 from qgis.core import (
     QgsVectorLayer, QgsFields, QgsField, QgsFeature, QgsGeometry,
     QgsVectorFileWriter, QgsProject, QgsCoordinateTransform,
@@ -10,6 +11,20 @@ from qgis.core import (
 from qgis.PyQt.QtCore import QVariant
 
 errors = []  # collect error messages
+
+
+import os
+from datetime import datetime
+from pathlib import Path
+
+# 処理開始時間の記録
+resultspath = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\TimeCalc_Result\ExtractUnpassables_RdEdg"
+region = "suzu_Pred"
+os.makedirs(resultspath, exist_ok=True)  # 結果保存フォルダがなければ作成
+starttime = datetime.now().strftime('%Y%m%d_%H%M%S')
+startdate = datetime.now().strftime('%Y%m%d')
+
+
 
 def merge_filtered_polygons(input_dir, output_gpkg, out_dir, output_layer_name, threshold):
     """
@@ -142,10 +157,10 @@ def merge_filtered_polygons(input_dir, output_gpkg, out_dir, output_layer_name, 
         
     # If any errors collected, write them to a log file in output_dir
     if errors:
-        err_fp = os.path.join(out_dir, f"processing_errors_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+        err_fp = os.path.join(out_dir, f"processing_errors_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
         try:
             with open(err_fp, 'w', encoding='utf-8') as ef:
-                ef.write(f"Processing errors for run: {datetime.datetime.now().isoformat()}\n")
+                ef.write(f"Processing errors for run: {datetime.now().isoformat()}\n")
                 ef.write(f"Source output: {output_gpkg}\n")
                 ef.write("Errors:\n")
                 for e in errors:
@@ -156,17 +171,30 @@ def merge_filtered_polygons(input_dir, output_gpkg, out_dir, output_layer_name, 
 
 
 threshold = 4.0  # threshold for remaining_road_width_m
-input_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskBBox\Pred_wajima"
+input_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\MaskBBox\Pred_suzu"
 
-out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\Pred_wajima"
+out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\Result_QGIS\Pred_suzu"
 
-output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\Pred_wajima\Pred_wajima_overall.gpkg"
-# output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\Pred_wajima\Pred_wajima_filtered_passables_thres{int(threshold)}m.gpkg"
-# output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Result_QGIS\Pred_wajima\Pred_wajima_filtered_unpassables_thres{int(threshold)}m.gpkg"
+output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\Result_QGIS\Pred_suzu\Pred_suzu_overall.gpkg"
+# output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\Result_QGIS\Pred_suzu\Pred_suzu_filtered_passables_thres{int(threshold)}m.gpkg"
+# output_gpkg = rf"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\Result_QGIS\Pred_suzu\Pred_suzu_filtered_unpassables_thres{int(threshold)}m.gpkg"
+
+os.makedirs(out_dir, exist_ok=True)  # 結果保存フォルダがなければ作成
+
 
 output_layer_name='overall'
 # output_layer_name='filtered_passables'
 # output_layer_name='filtered_unpassables'
 
 merge_filtered_polygons(input_dir, output_gpkg, out_dir=out_dir, output_layer_name=output_layer_name, threshold=threshold)
-    
+
+# 計算終了時間の取得とフォーマット
+finishtime = datetime.now().strftime('%Y%m%d_%H%M%S')
+datepath=str(Path(resultspath + f"\calc_time_{region}_{startdate}.txt"))
+
+# ファイルを新規作成し、日付を書き込む
+with open(datepath, 'w', encoding='utf-8') as f:
+    f.write(starttime)
+    f.write(finishtime)
+
+print("Calculation Finished in ", finishtime)

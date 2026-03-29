@@ -1,4 +1,5 @@
 """
+4番目に実行，リンクごとの道路ポリゴンで被害マスクをクリップするスクリプト
 Clip aggregated road damage polygons by multiple road polygon layers using PyQGIS.
 
 Usage (run inside QGIS Python console or a QGIS-enabled Python):
@@ -17,7 +18,6 @@ Note: run inside QGIS Python environment (processing must be available).
 import os
 import sys
 import glob
-import datetime
 import traceback
 
 from qgis.core import QgsVectorLayer, QgsField, QgsFields
@@ -25,9 +25,23 @@ from qgis.PyQt.QtCore import QVariant
 import processing
 
 
-masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskTIFFs\GT_suzu"
-roads_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RoadPolygon_Linkwise\suzu"
-output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskVector_Clipped\GT_suzu"
+masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\MaskTIFFs\GT_suzu"
+roads_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\RoadPolygon_Linkwise\suzu"
+output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\MaskVector_Clipped\GT_suzu"
+
+os.makedirs(output_dir, exist_ok=True)  # 結果保存フォルダがなければ作成
+
+import os
+from datetime import datetime
+from pathlib import Path
+
+# 処理開始時間の記録
+resultspath = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\TimeCalc_Result\ClipMasksbyMultiRoadPolygon"
+region = "suzu_GT"
+os.makedirs(resultspath, exist_ok=True)  # 結果保存フォルダがなければ作成
+starttime = datetime.now().strftime('%Y%m%d_%H%M%S')
+startdate = datetime.now().strftime('%Y%m%d')
+
 
 
 fields = QgsFields()
@@ -316,10 +330,10 @@ def main(masks_dir, roads_dir, output_dir, value_field='DN'):
     
     # Write error log if there are any errors
     if errors:
-        err_fp = os.path.join(output_dir, f"processing_errors_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+        err_fp = os.path.join(output_dir, f"processing_errors_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
         try:
             with open(err_fp, 'w', encoding='utf-8') as ef:
-                ef.write(f"Processing errors for run: {datetime.datetime.now().isoformat()}\n")
+                ef.write(f"Processing errors for run: {datetime.now().isoformat()}\n")
                 ef.write(f"Masks dir: {masks_dir}\n")
                 ef.write(f"Roads dir: {roads_dir}\n")
                 ef.write("Errors:\n")
@@ -331,3 +345,14 @@ def main(masks_dir, roads_dir, output_dir, value_field='DN'):
 
 
 main(masks_dir, roads_dir, output_dir)
+
+# 計算終了時間の取得とフォーマット
+finishtime = datetime.now().strftime('%Y%m%d_%H%M%S')
+datepath=str(Path(resultspath + f"\calc_time_{region}_{startdate}.txt"))
+
+# ファイルを新規作成し、日付を書き込む
+with open(datepath, 'w', encoding='utf-8') as f:
+    f.write(starttime)
+    f.write(finishtime)
+
+print("Calculation Finished in ", finishtime)

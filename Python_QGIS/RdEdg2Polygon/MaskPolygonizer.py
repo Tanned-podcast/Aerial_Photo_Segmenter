@@ -27,8 +27,21 @@ from qgis.core import QgsVectorLayer
 import processing
 
 
-masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskTIFFs\Pred"
-output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskVector_Unclipped\Pred"
+masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\MaskTIFFs\GT"
+output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\MaskVector_Unclipped\GT"
+
+
+import os
+from datetime import datetime
+from pathlib import Path
+
+# 処理開始時間の記録
+resultspath = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\TimeCalc_Result\MaskPolygonizer"
+region = "GT"
+os.makedirs(resultspath, exist_ok=True)  # 結果保存フォルダがなければ作成
+starttime = datetime.now().strftime('%Y%m%d_%H%M%S')
+startdate = datetime.now().strftime('%Y%m%d')
+
 
 
 def polygonize_raster(raster_path, value_field="DN", errors=None):
@@ -150,3 +163,14 @@ def main(masks_dir, output_dir, value_field='DN'):
             print('Failed to write error log file:', e)
 
 main(masks_dir, output_dir)
+
+# 計算終了時間の取得とフォーマット
+finishtime = datetime.now().strftime('%Y%m%d_%H%M%S')
+datepath=str(Path(resultspath + f"\calc_time_{region}_{startdate}.txt"))
+
+# ファイルを新規作成し、日付を書き込む
+with open(datepath, 'w', encoding='utf-8') as f:
+    f.write(starttime)
+    f.write(finishtime)
+
+print("Calculation Finished in ", finishtime)

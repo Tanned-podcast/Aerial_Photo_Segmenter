@@ -1,3 +1,5 @@
+# 3番目に実行，リンク/ノードごとに分割された道路データを地物ごとに別レイヤに保存するスクリプト
+# 2番目のコードを実行した後に，リンク/ノードごとに分割された道路データは手動で作る
 # -*- coding: utf-8 -*-
 # 1レイヤに複数フィーチャがある場合に、フィーチャごとに別レイヤとして GeoPackage に保存するスクリプト
 # 今回は道路ポリゴンの各フィーチャを別レイヤに分割する例
@@ -7,12 +9,28 @@ import processing
 import os
 
 # —— パラメータ —————————————————
-input_gpkg = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\wajima_roadpolygon_linkwise.gpkg"
-out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RoadPolygon_Linkwise\wajima"
-intersection_point_layer_path = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\wajima_road_nodes_edited.gpkg"  # 交差点のポイントレイヤ
+input_gpkg = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\RdEdg\suzu_roadpolygon_linkwise.gpkg"
+out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\RoadPolygon_Linkwise\suzu"
+intersection_point_layer_path = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\RdEdg\suzu_road_nodes_edited.gpkg"  # 交差点のポイントレイヤ
 base_name = input_gpkg.split("\\")[-1].split(".")[0]  # レイヤ名を生成するベース
 overwrite = True
+
+os.makedirs(out_dir, exist_ok=True)  # 結果保存フォルダがなければ作成
+
 # ————————————————————————————
+
+
+import os
+from datetime import datetime
+from pathlib import Path
+
+# 処理開始時間の記録
+resultspath = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\TimeCalc_Result\MultiFeat2SingleFeat"
+region = "suzu_Pred"
+os.makedirs(resultspath, exist_ok=True)  # 結果保存フォルダがなければ作成
+starttime = datetime.now().strftime('%Y%m%d_%H%M%S')
+startdate = datetime.now().strftime('%Y%m%d')
+
 
 errors = []  # collect error messages during processing
 saved_count = 0
@@ -106,3 +124,15 @@ for feat in input_layer.getFeatures():
             print('Wrote error log to:', err_fp)
         except Exception as e:
             print('Failed to write error log file:', e)
+
+
+# 計算終了時間の取得とフォーマット
+finishtime = datetime.now().strftime('%Y%m%d_%H%M%S')
+datepath=str(Path(resultspath + f"\calc_time_{region}_{startdate}.txt"))
+
+# ファイルを新規作成し、日付を書き込む
+with open(datepath, 'w', encoding='utf-8') as f:
+    f.write(starttime)
+    f.write(finishtime)
+
+print("Calculation Finished in ", finishtime)

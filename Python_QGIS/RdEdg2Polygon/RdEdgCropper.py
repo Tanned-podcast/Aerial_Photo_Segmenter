@@ -48,6 +48,19 @@ import glob
 import typing
 
 
+import os
+from datetime import datetime
+from pathlib import Path
+
+# 処理開始時間の記録
+resultspath = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\TimeCalc_Result\RDEdgCropper"
+region = "suzu_GT"
+os.makedirs(resultspath, exist_ok=True)  # 結果保存フォルダがなければ作成
+starttime = datetime.now().strftime('%Y%m%d_%H%M%S')
+startdate = datetime.now().strftime('%Y%m%d')
+
+
+
 def load_vector_layer(path_or_layer: typing.Union[str, QgsVectorLayer], name_hint: str = None) -> QgsVectorLayer:
     """Load a vector layer either from an existing QgsVectorLayer or from a file path."""
     if isinstance(path_or_layer, QgsVectorLayer):
@@ -247,10 +260,10 @@ def run_from_paths(path_layer_a: str, dir_masks: str, path_layer_e: str, output_
 
 
 
-example_dir_masks = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskVector_Unclipped\Pred"
-example_layer_a = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Roadline\DRM_suzu_ONLYurban_NOTsunami.gpkg"
-example_layer_e = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_kibanchizu_rdedg.gpkg"
-example_output = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_kibanchizu_rdedg_clipped.gpkg"
+example_dir_masks = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\MaskVector_Unclipped\GT"
+example_layer_a = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\Roadline\DRM_suzu_ONLYurban_NOTsunami.gpkg"
+example_layer_e = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\RdEdg\suzu_kibanchizu_rdedg.gpkg"
+example_output = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\RdEdg\suzu_kibanchizu_rdedg_clipped.gpkg"
 buffer_distance = 0.0004
 
 
@@ -262,3 +275,15 @@ run_from_paths(
         buffer_distance=buffer_distance,
         prefer_contains=True
     )
+
+# 計算終了時間の取得とフォーマット
+finishtime = datetime.now().strftime('%Y%m%d_%H%M%S')
+datepath=str(Path(resultspath + f"\calc_time_{region}_{startdate}.txt"))
+
+# ファイルを新規作成し、日付を書き込む
+with open(datepath, 'w', encoding='utf-8') as f:
+    f.write(starttime)
+    f.write(finishtime)
+
+print("Calculation Finished in ", finishtime)
+

@@ -24,6 +24,16 @@ except Exception as exc:  # pragma: no cover - friendly error
     print("Pillow is required: pip install pillow", file=sys.stderr)
     raise
 
+import os
+from datetime import datetime
+
+# 処理開始時間の記録
+resultspath = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\TimeCalc_Result\BackgroundTransparentizer"
+region = "Pred"
+os.makedirs(resultspath, exist_ok=True)  # 結果保存フォルダがなければ作成
+starttime = datetime.now().strftime('%Y%m%d_%H%M%S')
+startdate = datetime.now().strftime('%Y%m%d')
+
 
 def make_transparent(in_path: Path, out_path: Path) -> bool:
     """Open in_path PNG, set RGB (0,0,0) pixels to transparent, save to out_path.
@@ -60,8 +70,8 @@ def iter_png_files(input_dir: Path, recursive: bool = True):
 
 def main(argv: list[str] | None = None) -> int:
 
-    input_dir = Path(r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskPNG\GT")
-    output_dir = Path(r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskPNG_Transparent\GT")
+    input_dir = Path(r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\MaskPNG\Pred")
+    output_dir = Path(r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\MaskPNG_Transparent\Pred")
     overwrite = True
 
     if not input_dir.exists() or not input_dir.is_dir():
@@ -93,3 +103,15 @@ def main(argv: list[str] | None = None) -> int:
 
 
 main()
+
+# 計算終了時間の取得とフォーマット
+finishtime = datetime.now().strftime('%Y%m%d_%H%M%S')
+datepath=str(Path(resultspath + f"\calc_time_{region}_{startdate}.txt"))
+
+# ファイルを新規作成し、日付を書き込む
+with open(datepath, 'w', encoding='utf-8') as f:
+    f.write(starttime)
+    f.write(finishtime)
+
+print("Calculation Finished in ", finishtime)
+

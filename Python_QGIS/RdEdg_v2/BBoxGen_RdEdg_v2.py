@@ -1,3 +1,4 @@
+# 5番目に実行，被害マスクの周辺にBBoxを生成する
 # PyQGIS script for QGIS 3.40 LTR
 # - Computes principal road angle per damage polygon
 # - Rotates polygon to align with road, computes bounding box width
@@ -14,19 +15,34 @@ from qgis.core import (
 import processing
 from PyQt5.QtCore import QVariant
 import math, os, csv
-import glob, datetime
+import glob
 
 # ----------------------
 # === Configuration ===g
 # ----------------------
-ROAD_LAYER_PATH = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\suzu_rdedg_edited.gpkg"  # line layer (A)
-masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Fails0116\MaskVector_Clipped\Pred_suzu"  # list of polygon layers (one or many)
+ROAD_LAYER_PATH = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\RdEdg\suzu_rdedg_edited.gpkg"  # line layer (A)
+masks_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\MaskVector_Clipped\Pred_suzu"  # list of polygon layers (one or many)
 EPSILON = 0.000003
 EPSILON_ANGLE = 0.000001
-OUTPUT_CSV = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Fails0116\Result_QGIS\output_Pred_wajima.csv"
-output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Fails0116\MaskBBox\Pred_wajima"
+OUTPUT_CSV = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\Result_QGIS\output_Pred_suzu.csv"
+output_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\MaskBBox\Pred_suzu"
 BUFFER_SEGMENTS = 8        # buffer resolution
+
+os.makedirs(output_dir, exist_ok=True)  # 結果保存フォルダがなければ作成
+
 # ----------------------
+
+import os
+from datetime import datetime
+from pathlib import Path
+
+# 処理開始時間の記録
+resultspath = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\TimeCalc_Result\BBoxGen_RdEdg_v2"
+region = "Pred"
+os.makedirs(resultspath, exist_ok=True)  # 結果保存フォルダがなければ作成
+starttime = datetime.now().strftime('%Y%m%d_%H%M%S')
+startdate = datetime.now().strftime('%Y%m%d')
+
 
 # Collect error logs
 errors =[]
@@ -78,7 +94,7 @@ if not csv_exists:
 # Find mask vector files
 mask_files = sorted(glob.glob(os.path.join(masks_dir, '*.gpkg')))
 if not mask_files:
-    print('ERROR: no raster files found in', masks_dir)
+    print('ERROR: no mask files found in', masks_dir)
 
 saved_count = 0
 
@@ -308,7 +324,7 @@ else:
 
     # If any errors collected, write them to a log file in output_dir
     if errors:
-        err_fp = os.path.join(output_dir, f"processing_errors_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+        err_fp = os.path.join(output_dir, f"processing_errors_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
         try:
             with open(err_fp, 'w', encoding='utf-8') as ef:
                 ef.write(f"Processing errors for run: {datetime.datetime.now().isoformat()}\n")
@@ -319,3 +335,14 @@ else:
             print('Wrote error log to:', err_fp)
         except Exception as e:
             print('Failed to write error log file:', e)
+
+# 計算終了時間の取得とフォーマット
+finishtime = datetime.now().strftime('%Y%m%d_%H%M%S')
+datepath=str(Path(resultspath + f"\calc_time_{region}_{startdate}.txt"))
+
+# ファイルを新規作成し、日付を書き込む
+with open(datepath, 'w', encoding='utf-8') as f:
+    f.write(starttime)
+    f.write(finishtime)
+
+print("Calculation Finished in ", finishtime)

@@ -31,12 +31,23 @@ from PIL import Image
 
 # --------------------- USER CONFIG ---------------------
 # Default directories (edit as needed)
-DEFAULT_VECTOR_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\SquarePolygons\combined_test"
-DEFAULT_IMAGE_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskPNG\Pred"
-DEFAULT_OUTPUT_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\GCP\Pred"
+DEFAULT_VECTOR_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\SquarePolygons\combined_test"
+DEFAULT_IMAGE_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\MaskPNG\Pred"
+DEFAULT_OUTPUT_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\GCP\Pred"
 
 IMAGE_EXTS = ('.tif', '.tiff', '.png', '.jpg', '.jpeg', '.jp2')
 # -------------------------------------------------------
+
+from datetime import datetime
+from pathlib import Path
+
+# 処理開始時間の記録
+resultspath = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\TimeCalc_Result\MaskGCPGenerator"
+region = "Pred"
+os.makedirs(resultspath, exist_ok=True)  # 結果保存フォルダがなければ作成
+starttime = datetime.now().strftime('%Y%m%d_%H%M%S')
+startdate = datetime.now().strftime('%Y%m%d')
+
 
 
 def find_images(image_dir, base_name):
@@ -177,3 +188,14 @@ img_dir = DEFAULT_IMAGE_DIR
 out_dir = DEFAULT_OUTPUT_DIR
 
 generate_gcps(vec_dir, img_dir, out_dir)
+
+# 計算終了時間の取得とフォーマット
+finishtime = datetime.now().strftime('%Y%m%d_%H%M%S')
+datepath=str(Path(resultspath + f"\calc_time_{region}_{startdate}.txt"))
+
+# ファイルを新規作成し、日付を書き込む
+with open(datepath, 'w', encoding='utf-8') as f:
+    f.write(starttime)
+    f.write(finishtime)
+
+print("Calculation Finished in ", finishtime)

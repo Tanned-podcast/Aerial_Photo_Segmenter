@@ -20,6 +20,17 @@ import re
 import argparse
 import sys
 
+
+from datetime import datetime
+from pathlib import Path
+
+# 処理開始時間の記録
+resultspath = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\TimeCalc_Result\GDALProcessor"
+region = "Pred"
+os.makedirs(resultspath, exist_ok=True)  # 結果保存フォルダがなければ作成
+starttime = datetime.now().strftime('%Y%m%d_%H%M%S')
+startdate = datetime.now().strftime('%Y%m%d')
+
 # サポートする画像拡張子
 IMG_EXTS = {'.tif', '.tiff', '.jpg', '.jpeg', '.png', '.jp2', '.bmp'}
 
@@ -135,9 +146,9 @@ def process_one_image(in_path, gcp_path, out_path, gcp_srs='EPSG:4326', dst_srs=
 
 def main():
 
-    img_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskPNG_Transparent\GT"
-    gcp_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\GCP"
-    out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\MaskTIFFs\GT"
+    img_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\MaskPNG_Transparent\Pred"
+    gcp_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\GCP"
+    out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\MaskTIFFs\Pred"
     dst_srs = "EPSG:4612"
     gcp_srs = "EPSG:4612"
     overwrite = True
@@ -172,3 +183,14 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# 計算終了時間の取得とフォーマット
+finishtime = datetime.now().strftime('%Y%m%d_%H%M%S')
+datepath=str(Path(resultspath + f"\calc_time_{region}_{startdate}.txt"))
+
+# ファイルを新規作成し、日付を書き込む
+with open(datepath, 'w', encoding='utf-8') as f:
+    f.write(starttime)
+    f.write(finishtime)
+
+print("Calculation Finished in ", finishtime)

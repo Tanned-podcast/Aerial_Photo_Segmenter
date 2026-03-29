@@ -1,4 +1,5 @@
 """
+6番目に実行，BBoxから通行可能幅を計算
 original_road_width_from_rectangles.py
 PyQGIS script that:
 - Processes all polygon files in a directory (Layer A files).
@@ -12,7 +13,7 @@ PyQGIS script that:
 """
 
 import os
-import math, datetime, glob
+import math, glob
 
 from qgis.core import (
     QgsVectorLayer, QgsProject, QgsFeature, QgsGeometry, QgsPointXY,
@@ -24,6 +25,19 @@ import processing
 from PyQt5.QtCore import QVariant
 
 errors = []  # Collect error logs
+
+
+import os
+from datetime import datetime
+from pathlib import Path
+
+# 処理開始時間の記録
+resultspath = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\TimeCalc_Result\RDEdgMeasurer"
+region = "Pred_suzu"
+os.makedirs(resultspath, exist_ok=True)  # 結果保存フォルダがなければ作成
+starttime = datetime.now().strftime('%Y%m%d_%H%M%S')
+startdate = datetime.now().strftime('%Y%m%d')
+
 
 # ----------------------------
 # Utility functions
@@ -503,10 +517,10 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_lin
         
     # If any errors collected, write them to a log file in output_dir
     if errors:
-        err_fp = os.path.join(out_dir, f"processing_errors_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
+        err_fp = os.path.join(out_dir, f"processing_errors_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt")
         try:
             with open(err_fp, 'w', encoding='utf-8') as ef:
-                ef.write(f"Processing errors for run: {datetime.datetime.now().isoformat()}\n")
+                ef.write(f"Processing errors for run: {datetime.now().isoformat()}\n")
                 ef.write("Errors:\n")
                 for e in errors:
                     ef.write(e + '\n')
@@ -515,11 +529,22 @@ def process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_lin
             print('Failed to write error log file:', e)
 
 
-dir_A = r"C:\Users\kyohe\Aerial_Photo_Segmenter\Fails0117\MaskBBox"
-path_layerB = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\wajima_rdedg_edited_dissolved.gpkg"
-path_layerC = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RdEdg\wajima_rdedg_edited_dissolved_polygon.gpkg"
-NODE_ROAD_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\RoadPolygon_Linkwise\wajima"
-out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260105Data\Passability_WidthLine\Pred_wajima"
+dir_A = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\MaskBBox\Pred_suzu"
+path_layerB = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\RdEdg\suzu_rdedg_edited_dissolved.gpkg"
+path_layerC = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\RdEdg\suzu_rdedg_edited_dissolved_polygon.gpkg"
+NODE_ROAD_DIR = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\RoadPolygon_Linkwise\suzu"
+out_dir = r"C:\Users\kyohe\Aerial_Photo_Segmenter\20260327Data_TimeCalc\Passability_WidthLine\Pred_suzu"
 long_line_length = 100  
 
 process_directory_layersA(dir_A, path_layerB, path_layerC, out_dir, long_line_length)
+
+# 計算終了時間の取得とフォーマット
+finishtime = datetime.now().strftime('%Y%m%d_%H%M%S')
+datepath=str(Path(resultspath + f"\calc_time_{region}_{startdate}.txt"))
+
+# ファイルを新規作成し、日付を書き込む
+with open(datepath, 'w', encoding='utf-8') as f:
+    f.write(starttime)
+    f.write(finishtime)
+
+print("Calculation Finished in ", finishtime)
